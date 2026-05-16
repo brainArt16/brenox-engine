@@ -22,7 +22,7 @@ Prerequisites: Go 1.20+, Docker & docker-compose (optional), PostgreSQL.
 docker-compose -f docker-compose.yml up -d db
 ```
 
-3. Run migrations (using `psql` or your preferred tool):
+3.Run migrations (using `psql` or your preferred tool):
 
 ```bash
 psql "$DATABASE_URL" -f sql/migrations/000001_init_schema.up.sql
@@ -30,7 +30,7 @@ psql "$DATABASE_URL" -f sql/migrations/000002_create_channels.up.sql
 psql "$DATABASE_URL" -f sql/migrations/000003_create_messages.up.sql
 ```
 
-4. Build and run the API server:
+4.Build and run the API server:
 
 ```bash
 go build ./cmd/api

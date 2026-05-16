@@ -24,6 +24,14 @@ type ChannelMember struct {
 	UpdatedAt pgtype.Timestamptz
 }
 
+type Message struct {
+	ID        int64
+	ChannelID int64
+	SenderID  int64
+	Content   string
+	CreatedAt pgtype.Timestamptz
+}
+
 type User struct {
 	ID           int64
 	Email        string

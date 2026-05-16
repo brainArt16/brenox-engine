@@ -58,7 +58,7 @@ func (h *Handler) HandleWebSocket(
 		conn:   conn,
 		userID: userID,
 		hub:    h.hub,
-		send:   make(chan Message),
+		send:   make(chan Event),
 	}
 
 	// Register client.

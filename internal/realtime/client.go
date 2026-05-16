@@ -14,24 +14,27 @@ type Client struct {
 	// User identity
 	userID int64
 
+	// Channel the client is subscribed to. This allows us to manage clients by channel and broadcast messages to specific channels.
+	channelID int64
+
 	// Reference to the hub.
 	hub *Hub
 
 	// outgoing message queue: This is Go channel
-	send chan Message
+	send chan Event
 }
 
 // Create new hub instance.
 func NewHub() *Hub {
 	return &Hub{
 
-		clients:    make(map[*Client]bool),
+		channels:    make(map[int64]map[*Client]bool),
 
 		register:   make(chan *Client),
 
 		unregister: make(chan *Client),
 
-		broadcast:  make(chan Message),
+		broadcast:  make(chan Event),
 
 	}
 }
@@ -48,25 +51,32 @@ func (h *Hub) Run() {
 
 		// When a new client registers, add it to the clients map.
 		case client := <-h.register:
-			h.clients[client] = true
+
+			// create a channel if not exists for the client's channel ID
+			if h.channels[client.channelID] == nil {
+				h.channels[client.channelID] = make(map[*Client]bool)
+			}
+				h.channels[client.channelID][client] = true
 
 		// When a client unregisters, remove it from the clients map and close its send channel.
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+
+			if _, ok := h.channels[client.channelID][client]; ok {
+				delete(h.channels[client.channelID], client)
 				close(client.send)
 			}
 
-		// When a message is broadcast, send it to all connected clients.
-		case message := <-h.broadcast:
-			for client := range h.clients {
-				client.send <- message
+		// When a message is broadcast, send it to all clients subscribed to the relevant channel.
+		case event := <-h.broadcast:
+
+			clients := h.channels[event.ChannelID]
+			for client := range clients {
+				client.send <- event
 			}
 		}
 	}
 
 }
-
 
 
 // Read messages from websocket.
@@ -82,10 +92,10 @@ func (c *Client) readPump() {
 
 	for {
 
-		var message Message
+		var message Event
 
 		// Read JSON websocket message. 
-		// The message is expected to have the structure defined by the Message struct.
+		// The message is expected to have the structure defined by the Event struct.
 		err := c.conn.ReadJSON(
 			&message,
 		)
