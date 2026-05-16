@@ -18,3 +18,6 @@ migrate:
 
 run:
 	go run cmd/api/main.go
+
+db-start:
+	docker compose -f docker-compose.dev.yaml up -d
