@@ -2,6 +2,7 @@ package realtime
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -52,11 +53,27 @@ func (h *Handler) HandleWebSocket(
 		return
 	}
 
+	// Get channel ID from query parameters.
+	channelParam := c.Query("channel_id")
+
+	channelID, err := strconv.ParseInt(channelParam, 10, 64)
+
+	if err != nil {
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H {
+				"error": "invalid channel_id",
+			},
+		)
+		return
+	}
+
 	userID := c.MustGet("user_id").(int64)
 
 	client := &Client{
 		conn:   conn,
 		userID: userID,
+		channelID: channelID,
 		hub:    h.hub,
 		send:   make(chan Event),
 	}
@@ -68,4 +85,5 @@ func (h *Handler) HandleWebSocket(
 	go client.writePump()
 
 	go client.readPump()
+
 }

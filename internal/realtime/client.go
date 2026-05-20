@@ -79,7 +79,7 @@ func (h *Hub) Run() {
 }
 
 
-// Read messages from websocket.
+// Read event (messages) from websocket.
 func (c *Client) readPump() {
 
 	defer func() {
@@ -92,12 +92,12 @@ func (c *Client) readPump() {
 
 	for {
 
-		var message Event
+		var event Event
 
-		// Read JSON websocket message. 
-		// The message is expected to have the structure defined by the Event struct.
+		// Read JSON websocket event. 
+		// The event is expected to have the structure defined by the Event struct.
 		err := c.conn.ReadJSON(
-			&message,
+			&event,
 		)
 
 		if err != nil {
@@ -107,8 +107,11 @@ func (c *Client) readPump() {
 			break
 		}
 
+		// Ensure the event has the correct channel ID before broadcasting.
+		event.ChannelID = c.channelID
+
 		// Broadcast to hub.
-		c.hub.broadcast <- message
+		c.hub.broadcast <- event
 	}
 }
 
@@ -119,7 +122,7 @@ func (c *Client) writePump() {
 	
 	for {
 		// wait for outbound message
-		message, ok := <-c.send
+		event, ok := <-c.send
 
 		if !ok {
 			// Hub closed the channel, close WebSocket connection.
@@ -127,10 +130,10 @@ func (c *Client) writePump() {
 			return
 		}
 
-		err := c.conn.WriteJSON(message)
+		err := c.conn.WriteJSON(event)
 
 		if err != nil {
-			log.Printf("Error writing message to WebSocket: %v", err)
+			log.Printf("Error writing event to WebSocket: %v", err)
 			return
 		}
 	}
