@@ -36,24 +36,32 @@ const createChannel = `-- name: CreateChannel :one
 INSERT INTO channels (
     name,
     owner_id,
-    workspace_id
+    workspace_id,
+    is_read_only
 )
 VALUES (
     $1,
     $2,
-    $3
+    $3,
+    $4
 )
-RETURNING id, name, owner_id, created_at, updated_at, workspace_id
+RETURNING id, name, owner_id, created_at, updated_at, workspace_id, is_read_only
 `
 
 type CreateChannelParams struct {
 	Name        string
 	OwnerID     int64
 	WorkspaceID int64
+	IsReadOnly  bool
 }
 
 func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (Channel, error) {
-	row := q.db.QueryRow(ctx, createChannel, arg.Name, arg.OwnerID, arg.WorkspaceID)
+	row := q.db.QueryRow(ctx, createChannel,
+		arg.Name,
+		arg.OwnerID,
+		arg.WorkspaceID,
+		arg.IsReadOnly,
+	)
 	var i Channel
 	err := row.Scan(
 		&i.ID,
@@ -62,6 +70,7 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.WorkspaceID,
+		&i.IsReadOnly,
 	)
 	return i, err
 }
@@ -72,6 +81,7 @@ SELECT
     name,
     owner_id,
     workspace_id,
+    is_read_only,
     created_at,
     updated_at
 FROM channels
@@ -83,6 +93,7 @@ type GetChannelByIDRow struct {
 	Name        string
 	OwnerID     int64
 	WorkspaceID int64
+	IsReadOnly  bool
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 }
@@ -95,6 +106,7 @@ func (q *Queries) GetChannelByID(ctx context.Context, id int64) (GetChannelByIDR
 		&i.Name,
 		&i.OwnerID,
 		&i.WorkspaceID,
+		&i.IsReadOnly,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -107,6 +119,7 @@ SELECT
     name,
     owner_id,
     workspace_id,
+    is_read_only,
     created_at,
     updated_at
 FROM channels
@@ -124,6 +137,7 @@ type GetChannelInWorkspaceRow struct {
 	Name        string
 	OwnerID     int64
 	WorkspaceID int64
+	IsReadOnly  bool
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 }
@@ -136,6 +150,7 @@ func (q *Queries) GetChannelInWorkspace(ctx context.Context, arg GetChannelInWor
 		&i.Name,
 		&i.OwnerID,
 		&i.WorkspaceID,
+		&i.IsReadOnly,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -177,6 +192,7 @@ SELECT
     c.name,
     c.owner_id,
     c.workspace_id,
+    c.is_read_only,
     c.created_at
 FROM channels c
 INNER JOIN channel_members cm
@@ -196,6 +212,7 @@ type GetChannelsByWorkspaceAndUserRow struct {
 	Name        string
 	OwnerID     int64
 	WorkspaceID int64
+	IsReadOnly  bool
 	CreatedAt   pgtype.Timestamptz
 }
 
@@ -213,6 +230,7 @@ func (q *Queries) GetChannelsByWorkspaceAndUser(ctx context.Context, arg GetChan
 			&i.Name,
 			&i.OwnerID,
 			&i.WorkspaceID,
+			&i.IsReadOnly,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

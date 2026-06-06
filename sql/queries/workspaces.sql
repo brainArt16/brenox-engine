@@ -64,3 +64,38 @@ SELECT
     updated_at
 FROM workspaces
 WHERE slug = $1;
+
+-- name: GetWorkspaceMember :one
+SELECT
+    id,
+    workspace_id,
+    user_id,
+    role,
+    created_at,
+    updated_at
+FROM workspace_members
+WHERE workspace_id = $1 AND user_id = $2;
+
+-- name: ListWorkspaceMembers :many
+SELECT
+    wm.id,
+    wm.workspace_id,
+    wm.user_id,
+    wm.role,
+    wm.created_at,
+    u.username,
+    u.email
+FROM workspace_members wm
+INNER JOIN users u
+    ON u.id = wm.user_id
+WHERE wm.workspace_id = $1
+ORDER BY wm.created_at ASC;
+
+-- name: UpdateWorkspaceMemberRole :exec
+UPDATE workspace_members
+SET role = $3, updated_at = NOW()
+WHERE workspace_id = $1 AND user_id = $2;
+
+-- name: RemoveWorkspaceMember :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1 AND user_id = $2;

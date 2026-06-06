@@ -197,6 +197,8 @@ func (c *Client) handleMessageSend(event Event) {
 			c.sendClientError("not a workspace member")
 		case errors.Is(err, chat.ErrChannelNotFound):
 			c.sendClientError("channel not found")
+		case errors.Is(err, chat.ErrForbidden):
+			c.sendClientError("permission denied")
 		case errors.Is(err, chat.ErrEmptyContent), errors.Is(err, chat.ErrMessageTooLong):
 			c.sendClientError(err.Error())
 		default:

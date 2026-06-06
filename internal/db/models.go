@@ -15,6 +15,7 @@ type Channel struct {
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 	WorkspaceID int64
+	IsReadOnly  bool
 }
 
 type ChannelMember struct {
@@ -23,6 +24,14 @@ type ChannelMember struct {
 	UserID    int64
 	CreatedAt pgtype.Timestamptz
 	UpdatedAt pgtype.Timestamptz
+}
+
+type ChannelRole struct {
+	ID        int64
+	ChannelID int64
+	UserID    int64
+	Role      string
+	CreatedAt pgtype.Timestamptz
 }
 
 type Message struct {

@@ -7,16 +7,21 @@ import (
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/authz"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Service struct {
 	queries *db.Queries
+	authz   *authz.Service
 }
 
-func NewService(queries *db.Queries) *Service {
-	return &Service{queries: queries}
+func NewService(queries *db.Queries, authzService *authz.Service) *Service {
+	return &Service{
+		queries: queries,
+		authz:   authzService,
+	}
 }
 
 func normalizeContent(content string) (string, error) {
@@ -86,6 +91,30 @@ func (s *Service) SendMessage(
 	}
 
 	if err := s.assertChannelAccess(ctx, workspaceID, channelID, senderID); err != nil {
+		return nil, err
+	}
+
+	channel, err := s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
+		ID:          channelID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrChannelNotFound
+		}
+		return nil, err
+	}
+
+	if err := s.authz.Can(
+		ctx,
+		workspaceID,
+		senderID,
+		authz.ActionSendMessage,
+		authz.MessageOptions(channelID, channel.IsReadOnly),
+	); err != nil {
+		if errors.Is(err, authz.ErrForbidden) {
+			return nil, ErrForbidden
+		}
 		return nil, err
 	}
 

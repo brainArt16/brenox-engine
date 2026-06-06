@@ -14,6 +14,7 @@ var (
 	ErrNotMember         = errors.New("not a channel member")
 	ErrNotWorkspaceMember = errors.New("not a workspace member")
 	ErrChannelNotFound   = errors.New("channel not found")
+	ErrForbidden         = errors.New("permission denied")
 	ErrEmptyContent      = errors.New("message content is required")
 	ErrMessageTooLong    = errors.New("message exceeds maximum length")
 )

@@ -109,7 +109,7 @@ func writeServiceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrChannelNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-	case errors.Is(err, ErrNotMember), errors.Is(err, ErrNotWorkspaceMember):
+	case errors.Is(err, ErrNotMember), errors.Is(err, ErrNotWorkspaceMember), errors.Is(err, ErrForbidden):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrEmptyContent), errors.Is(err, ErrMessageTooLong):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

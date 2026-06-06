@@ -10,6 +10,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/postman/](docs/postman/) | Postman collection for HTTP API |
 | [AGENTS.md](AGENTS.md) | Agent roles for doc sync (task tracker, README, Postman) |
 | [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
+| [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 
 ## Repo layout
 
@@ -17,7 +18,8 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 cmd/api/              Application entrypoint
 internal/
   auth/               Registration, login, JWT
-  workspaces/         Workspace CRUD
+  authz/              Role-based permission checks
+  workspaces/         Workspace CRUD + member admin
   channels/           Channel CRUD (workspace-scoped)
   chat/               Message persistence
   realtime/           WebSocket hub and handlers
@@ -50,6 +52,7 @@ make migrate
 
 ```bash
 make run
+make test   # authz unit tests
 ```
 
 Server listens on `:8080`.
@@ -74,7 +77,11 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces` | JWT | Create workspace |
 | GET | `/api/workspaces` | JWT | List user workspaces |
 | GET | `/api/workspaces/:workspace_id` | JWT | Workspace detail |
-| POST | `/api/workspaces/:workspace_id/channels` | JWT | Create channel |
+| GET | `/api/workspaces/:workspace_id/members` | JWT | List members |
+| POST | `/api/workspaces/:workspace_id/members` | JWT | Invite member (owner/admin) |
+| DELETE | `/api/workspaces/:workspace_id/members/:user_id` | JWT | Remove member |
+| PATCH | `/api/workspaces/:workspace_id/members/:user_id` | JWT | Change member role |
+| POST | `/api/workspaces/:workspace_id/channels` | JWT | Create channel (role gated) |
 | GET | `/api/workspaces/:workspace_id/channels` | JWT | List workspace channels |
 | POST | `/api/workspaces/:workspace_id/channels/:id/join` | JWT | Join channel |
 | POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Leave channel |

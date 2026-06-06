@@ -8,16 +8,21 @@ import (
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/authz"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Service struct {
 	queries *db.Queries
+	authz   *authz.Service
 }
 
-func NewService(queries *db.Queries) *Service {
-	return &Service{queries: queries}
+func NewService(queries *db.Queries, authzService *authz.Service) *Service {
+	return &Service{
+		queries: queries,
+		authz:   authzService,
+	}
 }
 
 func (s *Service) CreateWorkspace(

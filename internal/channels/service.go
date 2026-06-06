@@ -4,14 +4,19 @@ import (
 	"context"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/authz"
 )
 
 type Service struct {
 	queries *db.Queries
+	authz   *authz.Service
 }
 
-func NewService(queries *db.Queries) *Service {
-	return &Service{queries: queries}
+func NewService(queries *db.Queries, authzService *authz.Service) *Service {
+	return &Service{
+		queries: queries,
+		authz:   authzService,
+	}
 }
 
 // CreateChannel creates a channel inside a workspace and adds the creator as a member.
@@ -25,10 +30,26 @@ func (s *Service) CreateChannel(
 		return nil, err
 	}
 
+	if err := s.authz.Can(ctx, workspaceID, userID, authz.ActionCreateChannel, authz.Options{}); err != nil {
+		return nil, mapAuthzError(err)
+	}
+
+	isReadOnly := req.IsReadOnly
+	if isReadOnly {
+		role, err := s.authz.WorkspaceRole(ctx, workspaceID, userID)
+		if err != nil {
+			return nil, mapAuthzError(err)
+		}
+		if role != authz.RoleOwner && role != authz.RoleAdmin {
+			return nil, ErrForbidden
+		}
+	}
+
 	channel, err := s.queries.CreateChannel(ctx, db.CreateChannelParams{
 		Name:        req.Name,
 		OwnerID:     userID,
 		WorkspaceID: workspaceID,
+		IsReadOnly:  isReadOnly,
 	})
 	if err != nil {
 		if isDuplicateChannelName(err) {
@@ -95,4 +116,11 @@ func (s *Service) GetChannelInWorkspace(
 	channelID int64,
 ) (db.GetChannelInWorkspaceRow, error) {
 	return s.getChannelInWorkspace(ctx, workspaceID, channelID)
+}
+
+func mapAuthzError(err error) error {
+	if err == authz.ErrForbidden {
+		return ErrForbidden
+	}
+	return err
 }

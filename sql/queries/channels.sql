@@ -2,12 +2,14 @@
 INSERT INTO channels (
     name,
     owner_id,
-    workspace_id
+    workspace_id,
+    is_read_only
 )
 VALUES (
     $1,
     $2,
-    $3
+    $3,
+    $4
 )
 RETURNING *;
 
@@ -27,6 +29,7 @@ SELECT
     c.name,
     c.owner_id,
     c.workspace_id,
+    c.is_read_only,
     c.created_at
 FROM channels c
 INNER JOIN channel_members cm
@@ -48,6 +51,7 @@ SELECT
     name,
     owner_id,
     workspace_id,
+    is_read_only,
     created_at,
     updated_at
 FROM channels
@@ -59,6 +63,7 @@ SELECT
     name,
     owner_id,
     workspace_id,
+    is_read_only,
     created_at,
     updated_at
 FROM channels

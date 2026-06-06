@@ -121,6 +121,37 @@ func (q *Queries) GetWorkspaceBySlug(ctx context.Context, slug string) (Workspac
 	return i, err
 }
 
+const getWorkspaceMember = `-- name: GetWorkspaceMember :one
+SELECT
+    id,
+    workspace_id,
+    user_id,
+    role,
+    created_at,
+    updated_at
+FROM workspace_members
+WHERE workspace_id = $1 AND user_id = $2
+`
+
+type GetWorkspaceMemberParams struct {
+	WorkspaceID int64
+	UserID      int64
+}
+
+func (q *Queries) GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMemberParams) (WorkspaceMember, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceMember, arg.WorkspaceID, arg.UserID)
+	var i WorkspaceMember
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getWorkspacesByUser = `-- name: GetWorkspacesByUser :many
 SELECT
     w.id,
@@ -187,4 +218,90 @@ func (q *Queries) IsWorkspaceMember(ctx context.Context, arg IsWorkspaceMemberPa
 	var is_member bool
 	err := row.Scan(&is_member)
 	return is_member, err
+}
+
+const listWorkspaceMembers = `-- name: ListWorkspaceMembers :many
+SELECT
+    wm.id,
+    wm.workspace_id,
+    wm.user_id,
+    wm.role,
+    wm.created_at,
+    u.username,
+    u.email
+FROM workspace_members wm
+INNER JOIN users u
+    ON u.id = wm.user_id
+WHERE wm.workspace_id = $1
+ORDER BY wm.created_at ASC
+`
+
+type ListWorkspaceMembersRow struct {
+	ID          int64
+	WorkspaceID int64
+	UserID      int64
+	Role        string
+	CreatedAt   pgtype.Timestamptz
+	Username    string
+	Email       string
+}
+
+func (q *Queries) ListWorkspaceMembers(ctx context.Context, workspaceID int64) ([]ListWorkspaceMembersRow, error) {
+	rows, err := q.db.Query(ctx, listWorkspaceMembers, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWorkspaceMembersRow
+	for rows.Next() {
+		var i ListWorkspaceMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Role,
+			&i.CreatedAt,
+			&i.Username,
+			&i.Email,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeWorkspaceMember = `-- name: RemoveWorkspaceMember :exec
+DELETE FROM workspace_members
+WHERE workspace_id = $1 AND user_id = $2
+`
+
+type RemoveWorkspaceMemberParams struct {
+	WorkspaceID int64
+	UserID      int64
+}
+
+func (q *Queries) RemoveWorkspaceMember(ctx context.Context, arg RemoveWorkspaceMemberParams) error {
+	_, err := q.db.Exec(ctx, removeWorkspaceMember, arg.WorkspaceID, arg.UserID)
+	return err
+}
+
+const updateWorkspaceMemberRole = `-- name: UpdateWorkspaceMemberRole :exec
+UPDATE workspace_members
+SET role = $3, updated_at = NOW()
+WHERE workspace_id = $1 AND user_id = $2
+`
+
+type UpdateWorkspaceMemberRoleParams struct {
+	WorkspaceID int64
+	UserID      int64
+	Role        string
+}
+
+func (q *Queries) UpdateWorkspaceMemberRole(ctx context.Context, arg UpdateWorkspaceMemberRoleParams) error {
+	_, err := q.db.Exec(ctx, updateWorkspaceMemberRole, arg.WorkspaceID, arg.UserID, arg.Role)
+	return err
 }

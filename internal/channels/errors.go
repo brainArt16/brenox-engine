@@ -9,6 +9,7 @@ var (
 	ErrOwnerCannotLeave    = errors.New("channel owner cannot leave; transfer ownership first")
 	ErrNotWorkspaceMember  = errors.New("not a workspace member")
 	ErrDuplicateChannelName = errors.New("channel name already exists in workspace")
+	ErrForbidden           = errors.New("permission denied")
 )
 
 // Broadcaster publishes membership change events to connected clients.

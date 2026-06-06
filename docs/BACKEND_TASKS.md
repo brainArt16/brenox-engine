@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 3 complete)
+> **Last updated:** 2026-06-06 (Phase 4 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -32,7 +32,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 1 | Messaging APIs | 🟢 Complete | 12 / 12 |
 | 2 | Channel Join / Leave | 🟢 Complete | 8 / 8 |
 | 3 | Workspace Architecture | 🟢 Complete | 14 / 14 |
-| 4 | Permissions System | 🔴 Not started | 0 / 12 |
+| 4 | Permissions System | 🟢 Complete | 12 / 12 |
 | 5 | Realtime Hardening | 🔴 Not started | 0 / 10 |
 | 6 | Redis & Horizontal Scale | 🔴 Not started | 0 / 10 |
 | 7 | Presence (Production) | 🔴 Not started | 0 / 8 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~25% (Phases 0–3 complete)
+**Overall backend completion:** ~30% (Phases 0–4 complete)
 
 ---
 
@@ -88,10 +88,12 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 - [x] Owner-leave policy — owner cannot leave (transfer ownership deferred to Phase 4)
 - [x] Workspaces — `workspaces`, `workspace_members`, workspace-scoped channels/messages
 - [x] `internal/workspaces` package + migration `000004_add_workspaces`
+- [x] RBAC — `internal/authz`, `docs/PERMISSIONS.md`, migration `000005_permissions`
+- [x] Workspace member admin APIs + read-only channels
 
 ### Known bugs / WIP (remaining)
 
-- [ ] No tests anywhere in repo
+- [ ] No tests anywhere in repo (authz unit tests added; integration tests still pending)
 
 ---
 
@@ -226,18 +228,18 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 4.1 | Migration: `roles` table (or enum: admin, moderator, member) | [ ] |
-| 4.2 | Migration: `workspace_member_roles` or role column on `workspace_members` | [ ] |
-| 4.3 | Migration: optional `channel_roles` for channel-specific overrides | [ ] |
-| 4.4 | Define permission matrix (document in `docs/PERMISSIONS.md`) | [ ] |
-| 4.5 | `internal/authz` package — `Can(user, action, resource)` | [ ] |
-| 4.6 | Gate: create/delete channel | [ ] |
-| 4.7 | Gate: invite/remove members | [ ] |
-| 4.8 | Gate: send messages (read-only channels) | [ ] |
-| 4.9 | `POST /api/workspaces/:id/members` — invite/add member (admin) | [ ] |
-| 4.10 | `DELETE /api/workspaces/:id/members/:user_id` — remove member | [ ] |
-| 4.11 | `PATCH /api/workspaces/:id/members/:user_id` — change role | [ ] |
-| 4.12 | Unit tests for permission checks | [ ] |
+| 4.1 | Migration: `roles` table (or enum: admin, moderator, member) | [x] |
+| 4.2 | Migration: `workspace_member_roles` or role column on `workspace_members` | [x] |
+| 4.3 | Migration: optional `channel_roles` for channel-specific overrides | [x] |
+| 4.4 | Define permission matrix (document in `docs/PERMISSIONS.md`) | [x] |
+| 4.5 | `internal/authz` package — `Can(user, action, resource)` | [x] |
+| 4.6 | Gate: create/delete channel | [x] |
+| 4.7 | Gate: invite/remove members | [x] |
+| 4.8 | Gate: send messages (read-only channels) | [x] |
+| 4.9 | `POST /api/workspaces/:id/members` — invite/add member (admin) | [x] |
+| 4.10 | `DELETE /api/workspaces/:id/members/:user_id` — remove member | [x] |
+| 4.11 | `PATCH /api/workspaces/:id/members/:user_id` — change role | [x] |
+| 4.12 | Unit tests for permission checks | [x] |
 
 ---
 
@@ -518,7 +520,11 @@ Phase 14 (Production) ←──────────────────�
 | POST | `/api/workspaces` | JWT | Working |
 | GET | `/api/workspaces` | JWT | Working |
 | GET | `/api/workspaces/:workspace_id` | JWT | Working |
-| POST | `/api/workspaces/:workspace_id/channels` | JWT | Working |
+| GET | `/api/workspaces/:workspace_id/members` | JWT | Working |
+| POST | `/api/workspaces/:workspace_id/members` | JWT | Working — owner/admin |
+| DELETE | `/api/workspaces/:workspace_id/members/:user_id` | JWT | Working — owner/admin |
+| PATCH | `/api/workspaces/:workspace_id/members/:user_id` | JWT | Working — owner/admin |
+| POST | `/api/workspaces/:workspace_id/channels` | JWT | Working — role gated |
 | GET | `/api/workspaces/:workspace_id/channels` | JWT | Working |
 | POST | `/api/workspaces/:workspace_id/channels/:id/join` | JWT | Working |
 | POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Working — owner blocked |
@@ -538,6 +544,7 @@ Record architectural decisions here as they are made.
 | 2026-06-06 | Channel owner cannot leave | Prevents orphaned channels; ownership transfer in Phase 4 |
 | 2026-06-06 | Workspace-scoped API paths | `/api/workspaces/:workspace_id/...` replaces flat channel routes |
 | 2026-06-06 | Channel names unique per workspace | DB index on `(workspace_id, name)` |
+| 2026-06-06 | Workspace roles: owner/admin/moderator/member | Enforced via `internal/authz`; read-only channels for announcements |
 
 ---
 
@@ -545,6 +552,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-06-06 | Phase 4 complete: RBAC, member admin APIs, read-only channels, authz tests |
 | 2026-06-06 | Phase 3 complete: workspaces, workspace-scoped routes, migration 000004 |
 | 2026-06-06 | Phase 2 complete: join/leave APIs, member events, owner-leave policy |
 | 2026-06-06 | Phase 1 complete: message REST APIs, WS message.send, membership checks, WEBSOCKET_EVENTS.md |

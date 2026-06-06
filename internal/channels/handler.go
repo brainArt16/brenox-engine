@@ -148,6 +148,8 @@ func writeChannelError(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrOwnerCannotLeave), errors.Is(err, ErrDuplicateChannelName):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, ErrForbidden):
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}

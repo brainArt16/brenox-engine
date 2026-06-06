@@ -111,6 +111,60 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}"
           }
+        },
+        {
+          "name": "List Members",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members"
+          }
+        },
+        {
+          "name": "Add Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"member@example.com\",\n  \"role\": \"member\"\n}"
+            },
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members"
+          }
+        },
+        {
+          "name": "Update Member Role",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"moderator\"\n}"
+            },
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members/2"
+          }
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/members/2"
+          }
         }
       ]
     },

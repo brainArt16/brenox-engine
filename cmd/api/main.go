@@ -10,6 +10,7 @@ import (
 	"github.com/brainart16/brenox/internal/database"
 
 	authHandler "github.com/brainart16/brenox/internal/auth"
+	"github.com/brainart16/brenox/internal/authz"
 	channelsHandler "github.com/brainart16/brenox/internal/channels"
 	chatHandler "github.com/brainart16/brenox/internal/chat"
 	middleware "github.com/brainart16/brenox/internal/middleware"
@@ -29,6 +30,7 @@ func main() {
 	}
 
 	queries := db.New(pool)
+	authzService := authz.NewService(queries)
 
 	hub := realtimeHandler.NewHub()
 	go hub.Run()
@@ -36,13 +38,13 @@ func main() {
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
 
-	workspacesService := workspacesHandler.NewService(queries)
+	workspacesService := workspacesHandler.NewService(queries, authzService)
 	workspacesHandlerInstance := workspacesHandler.NewHandler(workspacesService)
 
-	channelsService := channelsHandler.NewService(queries)
+	channelsService := channelsHandler.NewService(queries, authzService)
 	channelsHandlerInstance := channelsHandler.NewHandler(channelsService, hub)
 
-	chatService := chatHandler.NewService(queries)
+	chatService := chatHandler.NewService(queries, authzService)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService)
@@ -61,6 +63,10 @@ func main() {
 	api.GET("/workspaces/:workspace_id", workspacesHandlerInstance.GetWorkspace)
 
 	workspaceAPI := api.Group("/workspaces/:workspace_id")
+	workspaceAPI.GET("/members", workspacesHandlerInstance.ListMembers)
+	workspaceAPI.POST("/members", workspacesHandlerInstance.AddMember)
+	workspaceAPI.DELETE("/members/:user_id", workspacesHandlerInstance.RemoveMember)
+	workspaceAPI.PATCH("/members/:user_id", workspacesHandlerInstance.UpdateMemberRole)
 	workspaceAPI.POST("/channels", channelsHandlerInstance.CreateChannel)
 	workspaceAPI.GET("/channels", channelsHandlerInstance.GetChannels)
 	workspaceAPI.POST("/channels/:id/join", channelsHandlerInstance.JoinChannel)
