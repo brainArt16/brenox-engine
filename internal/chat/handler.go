@@ -17,9 +17,13 @@ func NewHandler(service *Service) *Handler {
 }
 
 func (h *Handler) CreateMessage(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid channel id"})
+		return
+	}
+
+	channelID, err := parseChannelID(c)
+	if err != nil {
 		return
 	}
 
@@ -31,7 +35,13 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 
 	userID := c.MustGet("user_id").(int64)
 
-	message, err := h.service.SendMessage(c.Request.Context(), channelID, userID, req.Content)
+	message, err := h.service.SendMessage(
+		c.Request.Context(),
+		workspaceID,
+		channelID,
+		userID,
+		req.Content,
+	)
 	if err != nil {
 		writeServiceError(c, err)
 		return
@@ -41,9 +51,13 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 }
 
 func (h *Handler) GetMessages(c *gin.Context) {
-	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	workspaceID, err := parseWorkspaceID(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid channel id"})
+		return
+	}
+
+	channelID, err := parseChannelID(c)
+	if err != nil {
 		return
 	}
 
@@ -54,6 +68,7 @@ func (h *Handler) GetMessages(c *gin.Context) {
 
 	rows, err := h.service.ListMessages(
 		c.Request.Context(),
+		workspaceID,
 		channelID,
 		userID,
 		int32(limit),
@@ -72,9 +87,29 @@ func (h *Handler) GetMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"messages": items})
 }
 
+func parseWorkspaceID(c *gin.Context) (int64, error) {
+	workspaceID, err := strconv.ParseInt(c.Param("workspace_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid workspace id"})
+		return 0, err
+	}
+	return workspaceID, nil
+}
+
+func parseChannelID(c *gin.Context) (int64, error) {
+	channelID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid channel id"})
+		return 0, err
+	}
+	return channelID, nil
+}
+
 func writeServiceError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, ErrNotMember):
+	case errors.Is(err, ErrChannelNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+	case errors.Is(err, ErrNotMember), errors.Is(err, ErrNotWorkspaceMember):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrEmptyContent), errors.Is(err, ErrMessageTooLong):
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

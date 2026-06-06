@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 2 complete)
+> **Last updated:** 2026-06-06 (Phase 3 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -31,7 +31,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 0 | Stabilize & Unblock | 🟢 Complete | 8 / 8 |
 | 1 | Messaging APIs | 🟢 Complete | 12 / 12 |
 | 2 | Channel Join / Leave | 🟢 Complete | 8 / 8 |
-| 3 | Workspace Architecture | 🔴 Not started | 0 / 14 |
+| 3 | Workspace Architecture | 🟢 Complete | 14 / 14 |
 | 4 | Permissions System | 🔴 Not started | 0 / 12 |
 | 5 | Realtime Hardening | 🔴 Not started | 0 / 10 |
 | 6 | Redis & Horizontal Scale | 🔴 Not started | 0 / 10 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~18% (Phases 0–2 complete)
+**Overall backend completion:** ~25% (Phases 0–3 complete)
 
 ---
 
@@ -86,6 +86,8 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 - [x] Channel join/leave — `POST /api/channels/:id/join|leave`
 - [x] Realtime events — `member.joined`, `member.left`
 - [x] Owner-leave policy — owner cannot leave (transfer ownership deferred to Phase 4)
+- [x] Workspaces — `workspaces`, `workspace_members`, workspace-scoped channels/messages
+- [x] `internal/workspaces` package + migration `000004_add_workspaces`
 
 ### Known bugs / WIP (remaining)
 
@@ -185,20 +187,20 @@ Authorization: Bearer <token>
 
 | # | Task | Status |
 |---|------|--------|
-| 3.1 | Migration: `workspaces` table (id, name, slug, owner_id, timestamps) | [ ] |
-| 3.2 | Migration: `workspace_members` table (workspace_id, user_id, role placeholder) | [ ] |
-| 3.3 | Migration: add `workspace_id` FK to `channels` | [ ] |
-| 3.4 | sqlc queries: create/list workspaces, add/list workspace members | [ ] |
-| 3.5 | `internal/workspaces` package (handler, service, types) | [ ] |
-| 3.6 | `POST /api/workspaces` — create workspace | [ ] |
-| 3.7 | `GET /api/workspaces` — list user's workspaces | [ ] |
-| 3.8 | `GET /api/workspaces/:id` — workspace detail | [ ] |
-| 3.9 | Update channel create to require `workspace_id` | [ ] |
-| 3.10 | Update channel list to filter by workspace | [ ] |
-| 3.11 | Scope message APIs under workspace (path or query param — decide and document) | [ ] |
-| 3.12 | Channel name uniqueness **per workspace** (not globally) | [ ] |
-| 3.13 | Data migration strategy for dev/staging (document in README) | [ ] |
-| 3.14 | Update WebSocket event envelope to include `workspace_id` | [ ] |
+| 3.1 | Migration: `workspaces` table (id, name, slug, owner_id, timestamps) | [x] |
+| 3.2 | Migration: `workspace_members` table (workspace_id, user_id, role placeholder) | [x] |
+| 3.3 | Migration: add `workspace_id` FK to `channels` | [x] |
+| 3.4 | sqlc queries: create/list workspaces, add/list workspace members | [x] |
+| 3.5 | `internal/workspaces` package (handler, service, types) | [x] |
+| 3.6 | `POST /api/workspaces` — create workspace | [x] |
+| 3.7 | `GET /api/workspaces` — list user's workspaces | [x] |
+| 3.8 | `GET /api/workspaces/:id` — workspace detail | [x] |
+| 3.9 | Update channel create to require `workspace_id` | [x] |
+| 3.10 | Update channel list to filter by workspace | [x] |
+| 3.11 | Scope message APIs under workspace (path or query param — decide and document) | [x] |
+| 3.12 | Channel name uniqueness **per workspace** (not globally) | [x] |
+| 3.13 | Data migration strategy for dev/staging (document in README) | [x] |
+| 3.14 | Update WebSocket event envelope to include `workspace_id` | [x] |
 
 ### Target data model
 
@@ -513,14 +515,17 @@ Phase 14 (Production) ←──────────────────�
 |--------|-------|------|-------|
 | POST | `/auth/register` | No | Working |
 | POST | `/auth/login` | No | Returns JWT |
-| POST | `/api/channels` | JWT | Working |
-| GET | `/api/channels` | JWT | Working |
-| POST | `/api/channels/:id/join` | JWT | Working |
-| POST | `/api/channels/:id/leave` | JWT | Working — owner blocked |
-| POST | `/api/channels/:id/messages` | JWT | Working — member only |
-| GET | `/api/channels/:id/messages` | JWT | Working — paginated |
+| POST | `/api/workspaces` | JWT | Working |
+| GET | `/api/workspaces` | JWT | Working |
+| GET | `/api/workspaces/:workspace_id` | JWT | Working |
+| POST | `/api/workspaces/:workspace_id/channels` | JWT | Working |
+| GET | `/api/workspaces/:workspace_id/channels` | JWT | Working |
+| POST | `/api/workspaces/:workspace_id/channels/:id/join` | JWT | Working |
+| POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Working — owner blocked |
+| POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Working |
+| GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Working — paginated |
 | GET | `/api/presence` | JWT | Working |
-| GET | `/api/ws?channel_id=` | JWT | Working — member only |
+| GET | `/api/ws?workspace_id=&channel_id=` | JWT | Working — member only |
 
 ---
 
@@ -531,6 +536,8 @@ Record architectural decisions here as they are made.
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-06-06 | Channel owner cannot leave | Prevents orphaned channels; ownership transfer in Phase 4 |
+| 2026-06-06 | Workspace-scoped API paths | `/api/workspaces/:workspace_id/...` replaces flat channel routes |
+| 2026-06-06 | Channel names unique per workspace | DB index on `(workspace_id, name)` |
 
 ---
 
@@ -538,6 +545,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-06-06 | Phase 3 complete: workspaces, workspace-scoped routes, migration 000004 |
 | 2026-06-06 | Phase 2 complete: join/leave APIs, member events, owner-leave policy |
 | 2026-06-06 | Phase 1 complete: message REST APIs, WS message.send, membership checks, WEBSOCKET_EVENTS.md |
 | 2026-06-06 | Phase 0 complete: build fix, presence, `.env.example`, `GET /api/presence`, Makefile `sqlc`/`build` |

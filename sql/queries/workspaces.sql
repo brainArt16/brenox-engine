@@ -1,0 +1,66 @@
+-- name: CreateWorkspace :one
+INSERT INTO workspaces (
+    name,
+    slug,
+    owner_id
+)
+VALUES (
+    $1,
+    $2,
+    $3
+)
+RETURNING *;
+
+-- name: AddWorkspaceMember :exec
+INSERT INTO workspace_members (
+    workspace_id,
+    user_id,
+    role
+)
+VALUES (
+    $1,
+    $2,
+    $3
+);
+
+-- name: GetWorkspacesByUser :many
+SELECT
+    w.id,
+    w.name,
+    w.slug,
+    w.owner_id,
+    w.created_at
+FROM workspaces w
+INNER JOIN workspace_members wm
+    ON w.id = wm.workspace_id
+WHERE wm.user_id = $1
+ORDER BY w.created_at DESC;
+
+-- name: GetWorkspaceByID :one
+SELECT
+    id,
+    name,
+    slug,
+    owner_id,
+    created_at,
+    updated_at
+FROM workspaces
+WHERE id = $1;
+
+-- name: IsWorkspaceMember :one
+SELECT EXISTS(
+    SELECT 1
+    FROM workspace_members
+    WHERE workspace_id = $1 AND user_id = $2
+)::boolean AS is_member;
+
+-- name: GetWorkspaceBySlug :one
+SELECT
+    id,
+    name,
+    slug,
+    owner_id,
+    created_at,
+    updated_at
+FROM workspaces
+WHERE slug = $1;

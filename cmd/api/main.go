@@ -14,71 +14,62 @@ import (
 	chatHandler "github.com/brainart16/brenox/internal/chat"
 	middleware "github.com/brainart16/brenox/internal/middleware"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
-
+	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
 )
 
 func main() {
-
-
-	// Load environment variables from .env
 	err := godotenv.Load()
-
 	if err != nil {
 		log.Fatal("Failed to load environment variables")
 	}
 
-	
-	// Create PostgreSQL connection pool
 	pool, err := database.NewPostgresPool()
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
-
-	// Create sqlc Queries object.
-	// This becomes our database access layer.
 	queries := db.New(pool)
 
-	// Initialize real-time service (e.g., WebSocket hub).
 	hub := realtimeHandler.NewHub()
 	go hub.Run()
 
-	// Initialize services and handlers.
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
+
+	workspacesService := workspacesHandler.NewService(queries)
+	workspacesHandlerInstance := workspacesHandler.NewHandler(workspacesService)
+
 	channelsService := channelsHandler.NewService(queries)
 	channelsHandlerInstance := channelsHandler.NewHandler(channelsService, hub)
+
 	chatService := chatHandler.NewService(queries)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService)
 
-
-	// Gin router initialization
 	router := gin.Default()
 
-	// Register Auth routes
 	authRouter := router.Group("/auth")
 	authRouter.POST("/register", authHandlerInstance.Register)
 	authRouter.POST("/login", authHandlerInstance.Login)
 
-	// Register protected routes
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware())
 
-	// Register channel routes
-	api.POST("/channels", channelsHandlerInstance.CreateChannel)
-	api.GET("/channels", channelsHandlerInstance.GetChannels)
-	api.POST("/channels/:id/join", channelsHandlerInstance.JoinChannel)
-	api.POST("/channels/:id/leave", channelsHandlerInstance.LeaveChannel)
-	api.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
-	api.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
+	api.POST("/workspaces", workspacesHandlerInstance.CreateWorkspace)
+	api.GET("/workspaces", workspacesHandlerInstance.ListWorkspaces)
+	api.GET("/workspaces/:workspace_id", workspacesHandlerInstance.GetWorkspace)
 
-	// Realtime routes
+	workspaceAPI := api.Group("/workspaces/:workspace_id")
+	workspaceAPI.POST("/channels", channelsHandlerInstance.CreateChannel)
+	workspaceAPI.GET("/channels", channelsHandlerInstance.GetChannels)
+	workspaceAPI.POST("/channels/:id/join", channelsHandlerInstance.JoinChannel)
+	workspaceAPI.POST("/channels/:id/leave", channelsHandlerInstance.LeaveChannel)
+	workspaceAPI.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
+	workspaceAPI.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
+
 	api.GET("/ws", wsHandler.HandleWebSocket)
 	api.GET("/presence", wsHandler.GetPresence)
 
-	// Start HTTP server
 	router.Run(":8080")
 }

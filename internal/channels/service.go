@@ -10,44 +10,37 @@ type Service struct {
 	queries *db.Queries
 }
 
-func NewService(
-	queries *db.Queries,
-) *Service {
-
-	return &Service{
-		queries: queries,
-	}
+func NewService(queries *db.Queries) *Service {
+	return &Service{queries: queries}
 }
 
-// CreateChannel creates new channel and automatically adds owner as member.
+// CreateChannel creates a channel inside a workspace and adds the creator as a member.
 func (s *Service) CreateChannel(
 	ctx context.Context,
+	workspaceID int64,
 	userID int64,
 	req CreateChannelRequest,
 ) (*db.Channel, error) {
-
-	// Create channel.
-	channel, err := s.queries.CreateChannel(
-		ctx,
-		db.CreateChannelParams{
-			Name:    req.Name,
-			OwnerID: userID,
-		},
-	)
-
-	if err != nil {
+	if err := s.assertWorkspaceMember(ctx, workspaceID, userID); err != nil {
 		return nil, err
 	}
 
-	// Add creator as member. Ownership and membership are NOT automatically same thing.
-	err = s.queries.AddChannelMember(
-		ctx,
-		db.AddChannelMemberParams{
-			ChannelID: channel.ID,
-			UserID:    userID,
-		},
-	)
+	channel, err := s.queries.CreateChannel(ctx, db.CreateChannelParams{
+		Name:        req.Name,
+		OwnerID:     userID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if isDuplicateChannelName(err) {
+			return nil, ErrDuplicateChannelName
+		}
+		return nil, err
+	}
 
+	err = s.queries.AddChannelMember(ctx, db.AddChannelMemberParams{
+		ChannelID: channel.ID,
+		UserID:    userID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -55,16 +48,20 @@ func (s *Service) CreateChannel(
 	return &channel, nil
 }
 
-// 	GetChannels returns channels user belongs to.
+// GetChannels returns channels in a workspace that the user belongs to.
 func (s *Service) GetChannels(
 	ctx context.Context,
+	workspaceID int64,
 	userID int64,
-) ([]db.GetChannelsByUserRow, error) {
+) ([]db.GetChannelsByWorkspaceAndUserRow, error) {
+	if err := s.assertWorkspaceMember(ctx, workspaceID, userID); err != nil {
+		return nil, err
+	}
 
-	return s.queries.GetChannelsByUser(
-		ctx,
-		userID,
-	)
+	return s.queries.GetChannelsByWorkspaceAndUser(ctx, db.GetChannelsByWorkspaceAndUserParams{
+		UserID:      userID,
+		WorkspaceID: workspaceID,
+	})
 }
 
 // IsMember reports whether userID belongs to channelID.
@@ -77,4 +74,25 @@ func (s *Service) IsMember(
 		ChannelID: channelID,
 		UserID:    userID,
 	})
+}
+
+// IsWorkspaceMember reports whether userID belongs to workspaceID.
+func (s *Service) IsWorkspaceMember(
+	ctx context.Context,
+	workspaceID int64,
+	userID int64,
+) (bool, error) {
+	return s.queries.IsWorkspaceMember(ctx, db.IsWorkspaceMemberParams{
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+	})
+}
+
+// GetChannelInWorkspace returns a channel scoped to a workspace.
+func (s *Service) GetChannelInWorkspace(
+	ctx context.Context,
+	workspaceID int64,
+	channelID int64,
+) (db.GetChannelInWorkspaceRow, error) {
+	return s.getChannelInWorkspace(ctx, workspaceID, channelID)
 }

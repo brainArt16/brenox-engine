@@ -18,8 +18,10 @@ type Client struct {
 	// User identity
 	userID int64
 
-	// Channel the client is subscribed to. This allows us to manage clients by channel and broadcast messages to specific channels.
+	// Channel the client is subscribed to.
 	channelID int64
+
+	workspaceID int64
 
 	// Reference to the hub.
 	hub *Hub
@@ -73,8 +75,9 @@ func (h *Hub) Run() {
 			// First connection only — additional tabs do not re-emit online.
 			if firstConnection {
 				h.broadcast <- Event{
-					Type:      "presence.online",
-					ChannelID: client.channelID,
+					Type:        "presence.online",
+					WorkspaceID: client.workspaceID,
+					ChannelID:   client.channelID,
 					Payload: map[string]any{
 						"user_id": client.userID,
 					},
@@ -105,8 +108,9 @@ func (h *Hub) Run() {
 			// Last connection only — other tabs stay online.
 			if lastConnection {
 				h.broadcast <- Event{
-					Type:      "presence.offline",
-					ChannelID: client.channelID,
+					Type:        "presence.offline",
+					WorkspaceID: client.workspaceID,
+					ChannelID:   client.channelID,
 					Payload: map[string]any{
 						"user_id": client.userID,
 					},
@@ -180,6 +184,7 @@ func (c *Client) handleMessageSend(event Event) {
 
 	message, err := c.chat.SendMessage(
 		context.Background(),
+		c.workspaceID,
 		c.channelID,
 		c.userID,
 		content,
@@ -188,6 +193,10 @@ func (c *Client) handleMessageSend(event Event) {
 		switch {
 		case errors.Is(err, chat.ErrNotMember):
 			c.sendClientError("not a channel member")
+		case errors.Is(err, chat.ErrNotWorkspaceMember):
+			c.sendClientError("not a workspace member")
+		case errors.Is(err, chat.ErrChannelNotFound):
+			c.sendClientError("channel not found")
 		case errors.Is(err, chat.ErrEmptyContent), errors.Is(err, chat.ErrMessageTooLong):
 			c.sendClientError(err.Error())
 		default:
@@ -198,16 +207,18 @@ func (c *Client) handleMessageSend(event Event) {
 	}
 
 	c.hub.broadcast <- Event{
-		Type:      "message.new",
-		ChannelID: c.channelID,
-		Payload:   chat.MessageNewPayload(*message),
+		Type:        "message.new",
+		WorkspaceID: c.workspaceID,
+		ChannelID:   c.channelID,
+		Payload:     chat.MessageNewPayload(*message),
 	}
 }
 
 func (c *Client) sendClientError(message string) {
 	c.send <- Event{
-		Type:      "error",
-		ChannelID: c.channelID,
+		Type:        "error",
+		WorkspaceID: c.workspaceID,
+		ChannelID:   c.channelID,
 		Payload: map[string]any{
 			"message": message,
 		},

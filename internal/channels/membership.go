@@ -10,13 +10,15 @@ import (
 
 func (s *Service) JoinChannel(
 	ctx context.Context,
+	workspaceID int64,
 	channelID int64,
 	userID int64,
 ) error {
-	if _, err := s.queries.GetChannelByID(ctx, channelID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrChannelNotFound
-		}
+	if err := s.assertWorkspaceMember(ctx, workspaceID, userID); err != nil {
+		return err
+	}
+
+	if _, err := s.getChannelInWorkspace(ctx, workspaceID, channelID); err != nil {
 		return err
 	}
 
@@ -39,14 +41,16 @@ func (s *Service) JoinChannel(
 
 func (s *Service) LeaveChannel(
 	ctx context.Context,
+	workspaceID int64,
 	channelID int64,
 	userID int64,
 ) error {
-	channel, err := s.queries.GetChannelByID(ctx, channelID)
+	if err := s.assertWorkspaceMember(ctx, workspaceID, userID); err != nil {
+		return err
+	}
+
+	channel, err := s.getChannelInWorkspace(ctx, workspaceID, channelID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrChannelNotFound
-		}
 		return err
 	}
 

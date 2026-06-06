@@ -2,10 +2,12 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -28,23 +30,52 @@ func normalizeContent(content string) (string, error) {
 	return content, nil
 }
 
-func (s *Service) assertMember(ctx context.Context, channelID, userID int64) error {
-	isMember, err := s.queries.IsChannelMember(ctx, db.IsChannelMemberParams{
+func (s *Service) assertChannelAccess(
+	ctx context.Context,
+	workspaceID int64,
+	channelID int64,
+	userID int64,
+) error {
+	isWorkspaceMember, err := s.queries.IsWorkspaceMember(ctx, db.IsWorkspaceMemberParams{
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+	})
+	if err != nil {
+		return err
+	}
+	if !isWorkspaceMember {
+		return ErrNotWorkspaceMember
+	}
+
+	_, err = s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
+		ID:          channelID,
+		WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrChannelNotFound
+		}
+		return err
+	}
+
+	isChannelMember, err := s.queries.IsChannelMember(ctx, db.IsChannelMemberParams{
 		ChannelID: channelID,
 		UserID:    userID,
 	})
 	if err != nil {
 		return err
 	}
-	if !isMember {
+	if !isChannelMember {
 		return ErrNotMember
 	}
+
 	return nil
 }
 
-// SendMessage validates content, checks membership, and persists the message.
+// SendMessage validates content, workspace access, and persists the message.
 func (s *Service) SendMessage(
 	ctx context.Context,
+	workspaceID int64,
 	channelID int64,
 	senderID int64,
 	content string,
@@ -54,22 +85,23 @@ func (s *Service) SendMessage(
 		return nil, err
 	}
 
-	if err := s.assertMember(ctx, channelID, senderID); err != nil {
+	if err := s.assertChannelAccess(ctx, workspaceID, channelID, senderID); err != nil {
 		return nil, err
 	}
 
 	return s.saveMessage(ctx, channelID, senderID, normalized)
 }
 
-// ListMessages returns paginated channel history for members only.
+// ListMessages returns paginated channel history for workspace channel members.
 func (s *Service) ListMessages(
 	ctx context.Context,
+	workspaceID int64,
 	channelID int64,
 	userID int64,
 	limit int32,
 	offset int32,
 ) ([]db.GetChannelMessagesRow, error) {
-	if err := s.assertMember(ctx, channelID, userID); err != nil {
+	if err := s.assertChannelAccess(ctx, workspaceID, channelID, userID); err != nil {
 		return nil, err
 	}
 
@@ -128,7 +160,6 @@ func ToMessageListItem(row db.GetChannelMessagesRow) MessageListItem {
 	}
 }
 
-// MessageNewPayload builds the WebSocket payload for message.new events.
 func MessageNewPayload(msg db.Message) map[string]any {
 	return map[string]any{
 		"id":         msg.ID,

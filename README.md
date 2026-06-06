@@ -1,6 +1,6 @@
 # Brenox — Realtime Communication Platform
 
-Go backend for a reusable realtime communication infrastructure (channels, messages, WebSocket events, presence). Uses Gin, PostgreSQL, sqlc, and gorilla/websocket.
+Go backend for a reusable realtime communication infrastructure (workspaces, channels, messages, WebSocket events, presence). Uses Gin, PostgreSQL, sqlc, and gorilla/websocket.
 
 ## Documentation
 
@@ -17,8 +17,9 @@ Go backend for a reusable realtime communication infrastructure (channels, messa
 cmd/api/              Application entrypoint
 internal/
   auth/               Registration, login, JWT
-  channels/           Channel CRUD
-  chat/               Message persistence (service)
+  workspaces/         Workspace CRUD
+  channels/           Channel CRUD (workspace-scoped)
+  chat/               Message persistence
   realtime/           WebSocket hub and handlers
   db/                 sqlc-generated queries
   database/           Postgres pool
@@ -53,27 +54,43 @@ make run
 
 Server listens on `:8080`.
 
+### Existing databases
+
+Migration `000004_add_workspaces` backfills a **Default Workspace** per channel owner. For a clean slate in dev, reset the database:
+
+```bash
+docker compose -f docker-compose.dev.yaml down -v
+make db-start && make migrate
+```
+
 ## API overview
+
+All channel and message routes are scoped under a workspace.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register` | No | Create account |
 | POST | `/auth/login` | No | Login, returns JWT |
-| POST | `/api/channels` | JWT | Create channel |
-| GET | `/api/channels` | JWT | List user channels |
-| POST | `/api/channels/:id/join` | JWT | Join channel |
-| POST | `/api/channels/:id/leave` | JWT | Leave channel (owner blocked) |
-| POST | `/api/channels/:id/messages` | JWT | Send message (member only) |
-| GET | `/api/channels/:id/messages` | JWT | Message history (`limit`, `offset`) |
-| GET | `/api/presence` | JWT | List globally online user IDs |
-| GET | `/api/ws?channel_id=` | JWT | WebSocket upgrade |
+| POST | `/api/workspaces` | JWT | Create workspace |
+| GET | `/api/workspaces` | JWT | List user workspaces |
+| GET | `/api/workspaces/:workspace_id` | JWT | Workspace detail |
+| POST | `/api/workspaces/:workspace_id/channels` | JWT | Create channel |
+| GET | `/api/workspaces/:workspace_id/channels` | JWT | List workspace channels |
+| POST | `/api/workspaces/:workspace_id/channels/:id/join` | JWT | Join channel |
+| POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Leave channel |
+| POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message |
+| GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Message history |
+| GET | `/api/presence` | JWT | Globally online user IDs |
+| GET | `/api/ws?workspace_id=&channel_id=` | JWT | WebSocket upgrade |
+
+Channel names are unique **per workspace**.
 
 Import [docs/postman/brenox.postman_collection.json](docs/postman/brenox.postman_collection.json) for request examples.
 
 ## Development
 
 - SQL lives in `sql/queries` and `sql/migrations`.
-- Regenerate sqlc: `sqlc generate`
+- Regenerate sqlc: `make sqlc` or `sqlc generate`
 - New migration: `make migration <name>`
 - Handlers orchestrate HTTP only; business logic in services; DB via sqlc.
 

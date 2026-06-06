@@ -5,6 +5,7 @@ Event envelope:
 ```json
 {
   "type": "event.type",
+  "workspace_id": 1,
   "channel_id": 1,
   "payload": {}
 }

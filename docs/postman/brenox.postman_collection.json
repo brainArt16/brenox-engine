@@ -2,12 +2,13 @@
   "info": {
     "_postman_id": "brenox-api-collection",
     "name": "Brenox API",
-    "description": "Brenox realtime communication platform — HTTP API.\n\nImport `brenox.postman_environment.json` for local variables.\n\nRun **Auth → Login** first; the test script saves `token` automatically.\n\nWebSocket: `GET {{baseUrl}}/api/ws?channel_id={{channelId}}` with `Authorization: Bearer {{token}}`.",
+    "description": "Brenox realtime communication platform — HTTP API.\n\nImport `brenox.postman_environment.json`. Run **Auth → Login** first.\n\nWebSocket: `GET {{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}` with Bearer token.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "token", "value": "" },
+    { "key": "workspaceId", "value": "1" },
     { "key": "channelId", "value": "1" }
   ],
   "item": [
@@ -23,8 +24,7 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"demo_user\",\n  \"password\": \"secret123\"\n}"
             },
-            "url": "{{baseUrl}}/auth/register",
-            "description": "Create a new user account."
+            "url": "{{baseUrl}}/auth/register"
           }
         },
         {
@@ -51,8 +51,65 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"secret123\"\n}"
             },
-            "url": "{{baseUrl}}/auth/login",
-            "description": "Authenticate and receive JWT. Token is saved to collection/environment variables."
+            "url": "{{baseUrl}}/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "item": [
+        {
+          "name": "Create Workspace",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('workspaceId', json.id);",
+                  "  pm.environment.set('workspaceId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Corp\",\n  \"slug\": \"acme-demo\"\n}"
+            },
+            "url": "{{baseUrl}}/api/workspaces"
+          }
+        },
+        {
+          "name": "List Workspaces",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/workspaces"
+          }
+        },
+        {
+          "name": "Get Workspace",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}"
           }
         }
       ]
@@ -62,6 +119,21 @@
       "item": [
         {
           "name": "Create Channel",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.ID) {",
+                  "  pm.collectionVariables.set('channelId', json.ID);",
+                  "  pm.environment.set('channelId', json.ID);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": {
               "type": "bearer",
@@ -73,8 +145,7 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"general\"\n}"
             },
-            "url": "{{baseUrl}}/api/channels",
-            "description": "Create a channel. Creator is added as a member."
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels"
           }
         },
         {
@@ -85,9 +156,7 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/channels",
-            "description": "List channels the authenticated user belongs to."
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels"
           }
         },
         {
@@ -98,9 +167,7 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "POST",
-            "header": [],
-            "url": "{{baseUrl}}/api/channels/{{channelId}}/join",
-            "description": "Add the authenticated user to a channel."
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/join"
           }
         },
         {
@@ -111,9 +178,7 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "POST",
-            "header": [],
-            "url": "{{baseUrl}}/api/channels/{{channelId}}/leave",
-            "description": "Remove the authenticated user from a channel. Channel owner cannot leave."
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/leave"
           }
         }
       ]
@@ -134,8 +199,7 @@
               "mode": "raw",
               "raw": "{\n  \"content\": \"hello from Postman\"\n}"
             },
-            "url": "{{baseUrl}}/api/channels/{{channelId}}/messages",
-            "description": "Send a message to a channel. Requires channel membership."
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/messages"
           }
         },
         {
@@ -146,17 +210,15 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "GET",
-            "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/channels/{{channelId}}/messages?limit=50&offset=0",
+              "raw": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/messages?limit=50&offset=0",
               "host": ["{{baseUrl}}"],
-              "path": ["api", "channels", "{{channelId}}", "messages"],
+              "path": ["api", "workspaces", "{{workspaceId}}", "channels", "{{channelId}}", "messages"],
               "query": [
                 { "key": "limit", "value": "50" },
                 { "key": "offset", "value": "0" }
               ]
-            },
-            "description": "Paginated message history for a channel."
+            }
           }
         }
       ]
@@ -172,9 +234,7 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "GET",
-            "header": [],
-            "url": "{{baseUrl}}/api/presence",
-            "description": "Returns user IDs with at least one active WebSocket connection."
+            "url": "{{baseUrl}}/api/presence"
           }
         }
       ]
@@ -186,16 +246,17 @@
           "name": "Connect (documentation)",
           "request": {
             "method": "GET",
-            "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/ws?channel_id={{channelId}}",
+              "raw": "{{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "ws"],
-              "query": [{ "key": "channel_id", "value": "{{channelId}}" }]
+              "query": [
+                { "key": "workspace_id", "value": "{{workspaceId}}" },
+                { "key": "channel_id", "value": "{{channelId}}" }
+              ]
             },
-            "description": "Upgrade to WebSocket. Requires channel membership.\n\nSend:\n```json\n{ \"type\": \"message.send\", \"payload\": { \"content\": \"hello\" } }\n```\n\nReceive `message.new` events. See docs/WEBSOCKET_EVENTS.md."
+            "description": "Requires workspace + channel membership. See docs/WEBSOCKET_EVENTS.md."
           }
         }
       ]

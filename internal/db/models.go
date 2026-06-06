@@ -9,11 +9,12 @@ import (
 )
 
 type Channel struct {
-	ID        int64
-	Name      string
-	OwnerID   int64
-	CreatedAt pgtype.Timestamptz
-	UpdatedAt pgtype.Timestamptz
+	ID          int64
+	Name        string
+	OwnerID     int64
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+	WorkspaceID int64
 }
 
 type ChannelMember struct {
@@ -38,4 +39,22 @@ type User struct {
 	Username     string
 	PasswordHash string
 	CreatedAt    pgtype.Timestamptz
+}
+
+type Workspace struct {
+	ID        int64
+	Name      string
+	Slug      string
+	OwnerID   int64
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type WorkspaceMember struct {
+	ID          int64
+	WorkspaceID int64
+	UserID      int64
+	Role        string
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
 }

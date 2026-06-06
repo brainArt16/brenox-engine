@@ -1,10 +1,11 @@
 package realtime
 
 // BroadcastMemberJoined notifies channel subscribers that a user joined.
-func (h *Hub) BroadcastMemberJoined(channelID, userID int64) {
+func (h *Hub) BroadcastMemberJoined(workspaceID, channelID, userID int64) {
 	h.broadcast <- Event{
-		Type:      "member.joined",
-		ChannelID: channelID,
+		Type:        "member.joined",
+		WorkspaceID: workspaceID,
+		ChannelID:   channelID,
 		Payload: map[string]any{
 			"user_id": userID,
 		},
@@ -12,10 +13,11 @@ func (h *Hub) BroadcastMemberJoined(channelID, userID int64) {
 }
 
 // BroadcastMemberLeft notifies channel subscribers that a user left.
-func (h *Hub) BroadcastMemberLeft(channelID, userID int64) {
+func (h *Hub) BroadcastMemberLeft(workspaceID, channelID, userID int64) {
 	h.broadcast <- Event{
-		Type:      "member.left",
-		ChannelID: channelID,
+		Type:        "member.left",
+		WorkspaceID: workspaceID,
+		ChannelID:   channelID,
 		Payload: map[string]any{
 			"user_id": userID,
 		},

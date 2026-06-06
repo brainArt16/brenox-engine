@@ -21,8 +21,12 @@ func NewHandler(service *Service, broadcaster Broadcaster) *Handler {
 }
 
 func (h *Handler) CreateChannel(c *gin.Context) {
-	var req CreateChannelRequest
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return
+	}
 
+	var req CreateChannelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
@@ -30,9 +34,9 @@ func (h *Handler) CreateChannel(c *gin.Context) {
 
 	userID := c.MustGet("user_id").(int64)
 
-	channel, err := h.service.CreateChannel(c.Request.Context(), userID, req)
+	channel, err := h.service.CreateChannel(c.Request.Context(), workspaceID, userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeChannelError(c, err)
 		return
 	}
 
@@ -40,11 +44,16 @@ func (h *Handler) CreateChannel(c *gin.Context) {
 }
 
 func (h *Handler) GetChannels(c *gin.Context) {
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return
+	}
+
 	userID := c.MustGet("user_id").(int64)
 
-	channels, err := h.service.GetChannels(c.Request.Context(), userID)
+	channels, err := h.service.GetChannels(c.Request.Context(), workspaceID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeChannelError(c, err)
 		return
 	}
 
@@ -52,6 +61,11 @@ func (h *Handler) GetChannels(c *gin.Context) {
 }
 
 func (h *Handler) JoinChannel(c *gin.Context) {
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return
+	}
+
 	channelID, err := parseChannelID(c)
 	if err != nil {
 		return
@@ -59,23 +73,29 @@ func (h *Handler) JoinChannel(c *gin.Context) {
 
 	userID := c.MustGet("user_id").(int64)
 
-	if err := h.service.JoinChannel(c.Request.Context(), channelID, userID); err != nil {
+	if err := h.service.JoinChannel(c.Request.Context(), workspaceID, channelID, userID); err != nil {
 		writeChannelError(c, err)
 		return
 	}
 
 	if h.broadcaster != nil {
-		h.broadcaster.BroadcastMemberJoined(channelID, userID)
+		h.broadcaster.BroadcastMemberJoined(workspaceID, channelID, userID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"channel_id": channelID,
-		"user_id":    userID,
-		"status":     "joined",
+		"workspace_id": workspaceID,
+		"channel_id":   channelID,
+		"user_id":      userID,
+		"status":       "joined",
 	})
 }
 
 func (h *Handler) LeaveChannel(c *gin.Context) {
+	workspaceID, err := parseWorkspaceID(c)
+	if err != nil {
+		return
+	}
+
 	channelID, err := parseChannelID(c)
 	if err != nil {
 		return
@@ -83,20 +103,30 @@ func (h *Handler) LeaveChannel(c *gin.Context) {
 
 	userID := c.MustGet("user_id").(int64)
 
-	if err := h.service.LeaveChannel(c.Request.Context(), channelID, userID); err != nil {
+	if err := h.service.LeaveChannel(c.Request.Context(), workspaceID, channelID, userID); err != nil {
 		writeChannelError(c, err)
 		return
 	}
 
 	if h.broadcaster != nil {
-		h.broadcaster.BroadcastMemberLeft(channelID, userID)
+		h.broadcaster.BroadcastMemberLeft(workspaceID, channelID, userID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"channel_id": channelID,
-		"user_id":    userID,
-		"status":     "left",
+		"workspace_id": workspaceID,
+		"channel_id":   channelID,
+		"user_id":      userID,
+		"status":       "left",
 	})
+}
+
+func parseWorkspaceID(c *gin.Context) (int64, error) {
+	workspaceID, err := strconv.ParseInt(c.Param("workspace_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid workspace id"})
+		return 0, err
+	}
+	return workspaceID, nil
 }
 
 func parseChannelID(c *gin.Context) (int64, error) {
@@ -114,9 +144,9 @@ func writeChannelError(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrAlreadyMember):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-	case errors.Is(err, ErrNotMember):
+	case errors.Is(err, ErrNotMember), errors.Is(err, ErrNotWorkspaceMember):
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-	case errors.Is(err, ErrOwnerCannotLeave):
+	case errors.Is(err, ErrOwnerCannotLeave), errors.Is(err, ErrDuplicateChannelName):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})

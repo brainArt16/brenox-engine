@@ -11,9 +11,11 @@ const (
 )
 
 var (
-	ErrNotMember      = errors.New("not a channel member")
-	ErrEmptyContent   = errors.New("message content is required")
-	ErrMessageTooLong = errors.New("message exceeds maximum length")
+	ErrNotMember         = errors.New("not a channel member")
+	ErrNotWorkspaceMember = errors.New("not a workspace member")
+	ErrChannelNotFound   = errors.New("channel not found")
+	ErrEmptyContent      = errors.New("message content is required")
+	ErrMessageTooLong    = errors.New("message exceeds maximum length")
 )
 
 type CreateMessageRequest struct {

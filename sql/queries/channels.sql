@@ -1,11 +1,13 @@
 -- name: CreateChannel :one
 INSERT INTO channels (
     name,
-    owner_id
+    owner_id,
+    workspace_id
 )
 VALUES (
     $1,
-    $2
+    $2,
+    $3
 )
 RETURNING *;
 
@@ -19,16 +21,18 @@ VALUES (
     $2
 );
 
--- name: GetChannelsByUser :many
+-- name: GetChannelsByWorkspaceAndUser :many
 SELECT
     c.id,
     c.name,
     c.owner_id,
+    c.workspace_id,
     c.created_at
 FROM channels c
 INNER JOIN channel_members cm
     ON c.id = cm.channel_id
 WHERE cm.user_id = $1
+    AND c.workspace_id = $2
 ORDER BY c.created_at DESC;
 
 -- name: IsChannelMember :one
@@ -39,12 +43,35 @@ SELECT EXISTS(
 )::boolean AS is_member;
 
 -- name: GetChannelByID :one
-SELECT id, name, owner_id, created_at, updated_at
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    created_at,
+    updated_at
 FROM channels
 WHERE id = $1;
 
+-- name: GetChannelInWorkspace :one
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    created_at,
+    updated_at
+FROM channels
+WHERE id = $1
+    AND workspace_id = $2;
+
 -- name: GetChannelMember :one
-SELECT id, channel_id, user_id, created_at, updated_at
+SELECT
+    id,
+    channel_id,
+    user_id,
+    created_at,
+    updated_at
 FROM channel_members
 WHERE channel_id = $1 AND user_id = $2;
 

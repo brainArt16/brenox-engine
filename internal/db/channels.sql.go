@@ -35,22 +35,25 @@ func (q *Queries) AddChannelMember(ctx context.Context, arg AddChannelMemberPara
 const createChannel = `-- name: CreateChannel :one
 INSERT INTO channels (
     name,
-    owner_id
+    owner_id,
+    workspace_id
 )
 VALUES (
     $1,
-    $2
+    $2,
+    $3
 )
-RETURNING id, name, owner_id, created_at, updated_at
+RETURNING id, name, owner_id, created_at, updated_at, workspace_id
 `
 
 type CreateChannelParams struct {
-	Name    string
-	OwnerID int64
+	Name        string
+	OwnerID     int64
+	WorkspaceID int64
 }
 
 func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (Channel, error) {
-	row := q.db.QueryRow(ctx, createChannel, arg.Name, arg.OwnerID)
+	row := q.db.QueryRow(ctx, createChannel, arg.Name, arg.OwnerID, arg.WorkspaceID)
 	var i Channel
 	err := row.Scan(
 		&i.ID,
@@ -58,23 +61,81 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.WorkspaceID,
 	)
 	return i, err
 }
 
 const getChannelByID = `-- name: GetChannelByID :one
-SELECT id, name, owner_id, created_at, updated_at
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    created_at,
+    updated_at
 FROM channels
 WHERE id = $1
 `
 
-func (q *Queries) GetChannelByID(ctx context.Context, id int64) (Channel, error) {
+type GetChannelByIDRow struct {
+	ID          int64
+	Name        string
+	OwnerID     int64
+	WorkspaceID int64
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) GetChannelByID(ctx context.Context, id int64) (GetChannelByIDRow, error) {
 	row := q.db.QueryRow(ctx, getChannelByID, id)
-	var i Channel
+	var i GetChannelByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.OwnerID,
+		&i.WorkspaceID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getChannelInWorkspace = `-- name: GetChannelInWorkspace :one
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    created_at,
+    updated_at
+FROM channels
+WHERE id = $1
+    AND workspace_id = $2
+`
+
+type GetChannelInWorkspaceParams struct {
+	ID          int64
+	WorkspaceID int64
+}
+
+type GetChannelInWorkspaceRow struct {
+	ID          int64
+	Name        string
+	OwnerID     int64
+	WorkspaceID int64
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) GetChannelInWorkspace(ctx context.Context, arg GetChannelInWorkspaceParams) (GetChannelInWorkspaceRow, error) {
+	row := q.db.QueryRow(ctx, getChannelInWorkspace, arg.ID, arg.WorkspaceID)
+	var i GetChannelInWorkspaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerID,
+		&i.WorkspaceID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -82,7 +143,12 @@ func (q *Queries) GetChannelByID(ctx context.Context, id int64) (Channel, error)
 }
 
 const getChannelMember = `-- name: GetChannelMember :one
-SELECT id, channel_id, user_id, created_at, updated_at
+SELECT
+    id,
+    channel_id,
+    user_id,
+    created_at,
+    updated_at
 FROM channel_members
 WHERE channel_id = $1 AND user_id = $2
 `
@@ -105,39 +171,48 @@ func (q *Queries) GetChannelMember(ctx context.Context, arg GetChannelMemberPara
 	return i, err
 }
 
-const getChannelsByUser = `-- name: GetChannelsByUser :many
+const getChannelsByWorkspaceAndUser = `-- name: GetChannelsByWorkspaceAndUser :many
 SELECT
     c.id,
     c.name,
     c.owner_id,
+    c.workspace_id,
     c.created_at
 FROM channels c
 INNER JOIN channel_members cm
     ON c.id = cm.channel_id
 WHERE cm.user_id = $1
+    AND c.workspace_id = $2
 ORDER BY c.created_at DESC
 `
 
-type GetChannelsByUserRow struct {
-	ID        int64
-	Name      string
-	OwnerID   int64
-	CreatedAt pgtype.Timestamptz
+type GetChannelsByWorkspaceAndUserParams struct {
+	UserID      int64
+	WorkspaceID int64
 }
 
-func (q *Queries) GetChannelsByUser(ctx context.Context, userID int64) ([]GetChannelsByUserRow, error) {
-	rows, err := q.db.Query(ctx, getChannelsByUser, userID)
+type GetChannelsByWorkspaceAndUserRow struct {
+	ID          int64
+	Name        string
+	OwnerID     int64
+	WorkspaceID int64
+	CreatedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) GetChannelsByWorkspaceAndUser(ctx context.Context, arg GetChannelsByWorkspaceAndUserParams) ([]GetChannelsByWorkspaceAndUserRow, error) {
+	rows, err := q.db.Query(ctx, getChannelsByWorkspaceAndUser, arg.UserID, arg.WorkspaceID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetChannelsByUserRow
+	var items []GetChannelsByWorkspaceAndUserRow
 	for rows.Next() {
-		var i GetChannelsByUserRow
+		var i GetChannelsByWorkspaceAndUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
 			&i.OwnerID,
+			&i.WorkspaceID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
