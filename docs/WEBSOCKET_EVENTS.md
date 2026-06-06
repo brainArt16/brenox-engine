@@ -90,7 +90,7 @@ Another member started or stopped typing.
 
 ### `presence.online` / `presence.offline`
 
-User's global WebSocket connection count crossed 0 ↔ 1.
+User's global connection count crossed 0 ↔ 1 (tracked in Redis across all nodes).
 
 ```json
 {
@@ -98,6 +98,23 @@ User's global WebSocket connection count crossed 0 ↔ 1.
   "workspace_id": 1,
   "channel_id": 1,
   "payload": { "user_id": 2 }
+}
+```
+
+### `presence.status`
+
+User changed status via `PATCH /api/users/me/status` (`online`, `away`, `offline`).
+
+```json
+{
+  "type": "presence.status",
+  "workspace_id": 1,
+  "channel_id": 1,
+  "payload": {
+    "user_id": 2,
+    "status": "away",
+    "last_seen": "2026-06-06T12:00:00Z"
+  }
 }
 ```
 
@@ -126,6 +143,16 @@ Sent to the client that triggered the failure.
   "payload": { "message": "invalid message payload" }
 }
 ```
+
+## Presence API
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/presence` | All globally online users (with status, connection_count, last_seen) |
+| GET | `/api/workspaces/:workspace_id/presence` | Online members in a workspace |
+| PATCH | `/api/users/me/status` | Set status: `online`, `away`, or `offline` |
+
+Presence state is stored in Redis when `REDIS_URL` is set; otherwise in-memory on a single node. Keys expire after `PRESENCE_TTL_SECONDS` unless refreshed by WebSocket heartbeat pings.
 
 ## Connection limits
 

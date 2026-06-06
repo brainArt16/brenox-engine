@@ -86,7 +86,7 @@ HTTP REST requests do **not** require stickiness — any node can serve them.
 
 Because message delivery uses Redis pub/sub, a user on node A receives events published from node B as long as both share the same Redis and PostgreSQL.
 
-**Presence** (`GET /api/presence`, `presence.online` / `presence.offline`) is still per-node until Phase 7 (Redis-backed presence).
+**Presence** is stored in Redis (`presence:{user_id}`) with global and workspace-scoped online sets. WebSocket heartbeat pings refresh key TTL (`PRESENCE_TTL_SECONDS`). Without Redis, presence falls back to in-memory on a single node.
 
 ## Local multi-instance test
 

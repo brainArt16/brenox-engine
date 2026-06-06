@@ -24,9 +24,9 @@ internal/
   channels/           Channel CRUD (workspace-scoped)
   chat/               Message persistence
   realtime/           WebSocket hub, Redis broker
+  presence/           Redis-backed presence store + API
   redis/              Redis client wrapper
   health/             Health check handler
-  db/                 sqlc-generated queries
   database/           Postgres pool
   middleware/         JWT auth middleware
 pkg/jwt/              JWT helpers
@@ -91,7 +91,9 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Leave channel |
 | POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message |
 | GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Message history |
-| GET | `/api/presence` | JWT | Globally online user IDs |
+| GET | `/api/presence` | JWT | Globally online users (status, last_seen) |
+| GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
+| PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |
 | GET | `/api/ws?workspace_id=&channel_id=` | JWT (header or `?token=`) | WebSocket upgrade |
 
 WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Graceful shutdown closes active WebSocket connections on SIGTERM.

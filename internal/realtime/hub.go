@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 )
@@ -10,11 +11,19 @@ const (
 	clientSendBuffer    = 16
 )
 
+// PresenceTracker updates distributed presence on connect/disconnect.
+type PresenceTracker interface {
+	Connect(ctx context.Context, userID, workspaceID, channelID int64) error
+	Disconnect(ctx context.Context, userID, workspaceID, channelID int64) error
+	Touch(ctx context.Context, userID int64) error
+}
+
 // Hub co-ordinates all connected clients and manages message broadcasting.
 type Hub struct {
 	mu sync.RWMutex
 	cfg Config
 	broker EventBroker
+	presence PresenceTracker
 
 	channels map[int64]map[*Client]bool
 
@@ -23,7 +32,6 @@ type Hub struct {
 	broadcast  chan Event
 	done       chan struct{}
 
-	onlineUsers     map[int64]int
 	userConnections map[int64]int
 	ipConnections   map[string]int
 }
@@ -36,10 +44,14 @@ func NewHub(cfg Config) *Hub {
 		unregister:      make(chan *Client),
 		broadcast:       make(chan Event, broadcastBufferSize),
 		done:            make(chan struct{}),
-		onlineUsers:     make(map[int64]int),
 		userConnections: make(map[int64]int),
 		ipConnections:   make(map[string]int),
 	}
+}
+
+// SetPresenceTracker attaches the distributed presence service.
+func (h *Hub) SetPresenceTracker(tracker PresenceTracker) {
+	h.presence = tracker
 }
 
 // SetBroker attaches the cross-node event broker (Redis or local-only).
@@ -115,14 +127,18 @@ func (h *Hub) handleRegister(client *Client) {
 	firstOnChannel := len(h.channels[client.channelID]) == 0
 	h.channels[client.channelID][client] = true
 
-	h.onlineUsers[client.userID]++
 	h.userConnections[client.userID]++
 	h.ipConnections[client.remoteIP]++
-	firstConnection := h.onlineUsers[client.userID] == 1
 	h.mu.Unlock()
 
 	if firstOnChannel && h.broker != nil {
 		h.broker.EnsureSubscribed(client.workspaceID, client.channelID)
+	}
+
+	if h.presence != nil {
+		if err := h.presence.Connect(context.Background(), client.userID, client.workspaceID, client.channelID); err != nil {
+			slog.Error("presence connect failed", "user_id", client.userID, "error", err)
+		}
 	}
 
 	slog.Info("websocket connected",
@@ -131,12 +147,6 @@ func (h *Hub) handleRegister(client *Client) {
 		"channel_id", client.channelID,
 		"remote_ip", client.remoteIP,
 	)
-
-	if firstConnection {
-		h.Publish(NewOutboundEvent("presence.online", client.workspaceID, client.channelID, map[string]any{
-			"user_id": client.userID,
-		}))
-	}
 }
 
 func (h *Hub) handleUnregister(client *Client) {
@@ -150,13 +160,8 @@ func (h *Hub) handleUnregister(client *Client) {
 	delete(h.channels[client.channelID], client)
 	lastOnChannel := len(h.channels[client.channelID]) == 0
 
-	h.onlineUsers[client.userID]--
 	h.userConnections[client.userID]--
 	h.ipConnections[client.remoteIP]--
-	lastConnection := h.onlineUsers[client.userID] <= 0
-	if lastConnection {
-		delete(h.onlineUsers, client.userID)
-	}
 	if h.userConnections[client.userID] <= 0 {
 		delete(h.userConnections, client.userID)
 	}
@@ -171,17 +176,17 @@ func (h *Hub) handleUnregister(client *Client) {
 
 	close(client.send)
 
+	if h.presence != nil {
+		if err := h.presence.Disconnect(context.Background(), client.userID, client.workspaceID, client.channelID); err != nil {
+			slog.Error("presence disconnect failed", "user_id", client.userID, "error", err)
+		}
+	}
+
 	slog.Info("websocket disconnected",
 		"user_id", client.userID,
 		"workspace_id", client.workspaceID,
 		"channel_id", client.channelID,
 	)
-
-	if lastConnection {
-		h.Publish(NewOutboundEvent("presence.offline", client.workspaceID, client.channelID, map[string]any{
-			"user_id": client.userID,
-		}))
-	}
 }
 
 func (h *Hub) deliver(event Event) {
@@ -222,6 +227,9 @@ func (h *Hub) Shutdown() {
 
 	for channelID, clients := range h.channels {
 		for client := range clients {
+			if h.presence != nil {
+				_ = h.presence.Disconnect(context.Background(), client.userID, client.workspaceID, client.channelID)
+			}
 			close(client.send)
 			if client.conn != nil {
 				_ = client.conn.Close()
@@ -232,14 +240,11 @@ func (h *Hub) Shutdown() {
 	}
 }
 
-// OnlineUserIDs returns a snapshot of users with at least one active WebSocket connection.
-func (h *Hub) OnlineUserIDs() []int64 {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	ids := make([]int64, 0, len(h.onlineUsers))
-	for userID := range h.onlineUsers {
-		ids = append(ids, userID)
+func (h *Hub) touchPresence(userID int64) {
+	if h.presence == nil {
+		return
 	}
-	return ids
+	if err := h.presence.Touch(context.Background(), userID); err != nil {
+		slog.Warn("presence touch failed", "user_id", userID, "error", err)
+	}
 }

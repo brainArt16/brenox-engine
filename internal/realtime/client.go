@@ -139,6 +139,7 @@ func (c *Client) writePump() {
 				slog.Warn("websocket ping error", "user_id", c.userID, "error", err)
 				return
 			}
+			c.hub.touchPresence(c.userID)
 		}
 	}
 }

@@ -16,6 +16,7 @@ import (
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/database"
 	"github.com/brainart16/brenox/internal/health"
+	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
 
 	authHandler "github.com/brainart16/brenox/internal/auth"
@@ -55,6 +56,10 @@ func main() {
 	go hub.Run()
 	broker.Start()
 
+	presenceService := presence.NewService(redisClient, queries, realtimeHandler.NewHubBroadcaster(hub))
+	hub.SetPresenceTracker(presenceService)
+	presenceHandler := presence.NewHandler(presenceService)
+
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
 
@@ -90,6 +95,7 @@ func main() {
 	workspaceAPI.POST("/members", workspacesHandlerInstance.AddMember)
 	workspaceAPI.DELETE("/members/:user_id", workspacesHandlerInstance.RemoveMember)
 	workspaceAPI.PATCH("/members/:user_id", workspacesHandlerInstance.UpdateMemberRole)
+	workspaceAPI.GET("/presence", presenceHandler.GetWorkspacePresence)
 	workspaceAPI.POST("/channels", channelsHandlerInstance.CreateChannel)
 	workspaceAPI.GET("/channels", channelsHandlerInstance.GetChannels)
 	workspaceAPI.POST("/channels/:id/join", channelsHandlerInstance.JoinChannel)
@@ -97,8 +103,9 @@ func main() {
 	workspaceAPI.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
 	workspaceAPI.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
 
+	api.GET("/presence", presenceHandler.GetGlobalPresence)
+	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
 	api.GET("/ws", wsHandler.HandleWebSocket)
-	api.GET("/presence", wsHandler.GetPresence)
 
 	port := os.Getenv("PORT")
 	if port == "" {

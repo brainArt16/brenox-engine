@@ -301,7 +301,36 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "GET",
-            "url": "{{baseUrl}}/api/presence"
+            "url": "{{baseUrl}}/api/presence",
+            "description": "Returns online_users with user_id, status, connection_count, last_seen."
+          }
+        },
+        {
+          "name": "Get Workspace Online Users",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/presence"
+          }
+        },
+        {
+          "name": "Update My Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"away\"\n}"
+            },
+            "url": "{{baseUrl}}/api/users/me/status",
+            "description": "Status: online, away, or offline. Broadcasts presence.status to active channels."
           }
         }
       ]

@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 6 complete)
+> **Last updated:** 2026-06-06 (Phase 7 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -35,7 +35,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 4 | Permissions System | 🟢 Complete | 12 / 12 |
 | 5 | Realtime Hardening | 🟢 Complete | 10 / 10 |
 | 6 | Redis & Horizontal Scale | 🟢 Complete | 10 / 10 |
-| 7 | Presence (Production) | 🔴 Not started | 0 / 8 |
+| 7 | Presence (Production) | 🟢 Complete | 8 / 8 |
 | 8 | Notifications | 🔴 Not started | 0 / 10 |
 | 9 | File Attachments | 🔴 Not started | 0 / 10 |
 | 10 | WebRTC — Voice | 🔴 Not started | 0 / 12 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~50% (Phases 0–6 complete)
+**Overall backend completion:** ~55% (Phases 0–7 complete)
 
 ---
 
@@ -293,14 +293,14 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 7.1 | Redis keys: `presence:{user_id}` → status, connection_count, last_seen | [ ] |
-| 7.2 | Increment/decrement on WS connect/disconnect (all nodes) | [ ] |
-| 7.3 | `GET /api/presence` — global online users (or workspace-scoped) | [ ] |
-| 7.4 | `GET /api/workspaces/:id/presence` — workspace online members | [ ] |
-| 7.5 | Status updates: online, away, offline (`PATCH /api/users/me/status`) | [ ] |
-| 7.6 | Broadcast `presence.online`, `presence.offline`, `presence.status` events | [ ] |
-| 7.7 | TTL / heartbeat for stale presence cleanup | [ ] |
-| 7.8 | Remove in-memory-only presence maps from hub (or keep as local cache) | [ ] |
+| 7.1 | Redis keys: `presence:{user_id}` → status, connection_count, last_seen | [x] |
+| 7.2 | Increment/decrement on WS connect/disconnect (all nodes) | [x] |
+| 7.3 | `GET /api/presence` — global online users (or workspace-scoped) | [x] |
+| 7.4 | `GET /api/workspaces/:id/presence` — workspace online members | [x] |
+| 7.5 | Status updates: online, away, offline (`PATCH /api/users/me/status`) | [x] |
+| 7.6 | Broadcast `presence.online`, `presence.offline`, `presence.status` events | [x] |
+| 7.7 | TTL / heartbeat for stale presence cleanup | [x] |
+| 7.8 | Remove in-memory-only presence maps from hub (or keep as local cache) | [x] |
 
 ---
 
