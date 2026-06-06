@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 9 complete)
+> **Last updated:** 2026-06-06 (Phase 10 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -38,7 +38,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 7 | Presence (Production) | 🟢 Complete | 8 / 8 |
 | 8 | Notifications | 🟢 Complete | 10 / 10 |
 | 9 | File Attachments | 🟢 Complete | 10 / 10 |
-| 10 | WebRTC — Voice | 🔴 Not started | 0 / 12 |
+| 10 | WebRTC — Voice | 🟢 Complete | 12 / 12 |
 | 11 | WebRTC — Video | 🔴 Not started | 0 / 8 |
 | 12 | Public Developer API | 🔴 Not started | 0 / 12 |
 | 13 | SDK Support Layer | 🔴 Not started | 0 / 8 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~69% (Phases 0–9 complete)
+**Overall backend completion:** ~71% (Phases 0–10 complete)
 
 ---
 
@@ -354,18 +354,18 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 10.1 | Migration: `calls`, `call_participants` tables | [ ] |
-| 10.2 | `POST /api/channels/:id/calls` — initiate call | [ ] |
-| 10.3 | `POST /api/calls/:id/join` — join call room | [ ] |
-| 10.4 | `POST /api/calls/:id/leave` — leave call | [ ] |
-| 10.5 | WebSocket events: `call.offer`, `call.answer`, `call.ice` | [ ] |
-| 10.6 | WebSocket events: `call.join`, `call.leave`, `call.end` | [ ] |
-| 10.7 | ICE candidate relay through hub/Redis | [ ] |
-| 10.8 | Call state machine (ringing, active, ended) | [ ] |
-| 10.9 | Permission: only channel members can join channel calls | [ ] |
-| 10.10 | Call invite notifications (Phase 8 integration) | [ ] |
-| 10.11 | TURN server config documentation (external service) | [ ] |
-| 10.12 | Integration test with mock SDP exchange | [ ] |
+| 10.1 | Migration: `calls`, `call_participants` tables | [x] |
+| 10.2 | `POST /api/channels/:id/calls` — initiate call | [x] |
+| 10.3 | `POST /api/calls/:id/join` — join call room | [x] |
+| 10.4 | `POST /api/calls/:id/leave` — leave call | [x] |
+| 10.5 | WebSocket events: `call.offer`, `call.answer`, `call.ice` | [x] |
+| 10.6 | WebSocket events: `call.join`, `call.leave`, `call.end` | [x] |
+| 10.7 | ICE candidate relay through hub/Redis | [x] |
+| 10.8 | Call state machine (ringing, active, ended) | [x] |
+| 10.9 | Permission: only channel members can join channel calls | [x] |
+| 10.10 | Call invite notifications (Phase 8 integration) | [x] |
+| 10.11 | TURN server config documentation (external service) | [x] |
+| 10.12 | Integration test with mock SDP exchange | [x] |
 
 ---
 

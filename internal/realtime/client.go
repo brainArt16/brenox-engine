@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/brainart16/brenox/internal/chat"
+	"github.com/brainart16/brenox/internal/calls"
 	"github.com/gorilla/websocket"
 )
 
@@ -18,6 +19,7 @@ type Client struct {
 	remoteIP    string
 	hub         *Hub
 	chat        *chat.Service
+	calls       *calls.Service
 	send        chan Event
 }
 
@@ -50,6 +52,8 @@ func (c *Client) readPump() {
 			c.broadcastTyping("typing.start")
 		case "typing.stop":
 			c.broadcastTyping("typing.stop")
+		case "call.offer", "call.answer", "call.ice":
+			c.handleCallSignal(event)
 		default:
 			slog.Info("ignored websocket event", "type", event.Type, "user_id", c.userID)
 		}
@@ -96,6 +100,33 @@ func (c *Client) handleSendMessageError(err error) {
 		slog.Error("message.send failed", "user_id", c.userID, "error", err)
 		c.sendClientError("failed to send message")
 	}
+}
+
+func (c *Client) handleCallSignal(event Event) {
+	if c.calls == nil {
+		c.sendClientError("calls unavailable")
+		return
+	}
+
+	callID := payloadInt64(event.Payload, "call_id")
+	if callID == 0 {
+		c.sendClientError("invalid call signal payload")
+		return
+	}
+
+	ctx, err := c.calls.ValidateSignal(context.Background(), callID, c.userID)
+	if err != nil {
+		c.sendClientError(err.Error())
+		return
+	}
+
+	if ctx.ChannelID != c.channelID || ctx.WorkspaceID != c.workspaceID {
+		c.sendClientError("call channel mismatch")
+		return
+	}
+
+	payload := withFromUser(event.Payload, c.userID)
+	c.hub.Publish(NewOutboundEvent(event.Type, c.workspaceID, c.channelID, payload))
 }
 
 func (c *Client) broadcastTyping(eventType string) {

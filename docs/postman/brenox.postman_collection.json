@@ -10,7 +10,8 @@
     { "key": "token", "value": "" },
     { "key": "workspaceId", "value": "1" },
     { "key": "channelId", "value": "1" },
-    { "key": "messageId", "value": "1" }
+    { "key": "messageId", "value": "1" },
+    { "key": "callId", "value": "1" }
   ],
   "item": [
     {
@@ -382,6 +383,62 @@
             },
             "method": "POST",
             "url": "{{baseUrl}}/api/notifications/read-all"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calls",
+      "item": [
+        {
+          "name": "Initiate Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('callId', json.id);",
+                  "  pm.environment.set('callId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/calls",
+            "description": "Creates a ringing call in the channel. One active call per channel. Notifies other channel members (call_invite). Signaling via WebSocket: call.offer, call.answer, call.ice."
+          }
+        },
+        {
+          "name": "Join Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/calls/{{callId}}/join",
+            "description": "Join an existing call. Channel members only. Broadcasts call.join."
+          }
+        },
+        {
+          "name": "Leave Call",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/api/calls/{{callId}}/leave",
+            "description": "Leave call. Broadcasts call.leave; call.end when last participant leaves."
           }
         }
       ]

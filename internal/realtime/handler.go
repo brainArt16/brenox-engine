@@ -7,6 +7,7 @@ import (
 
 	"github.com/brainart16/brenox/internal/channels"
 	"github.com/brainart16/brenox/internal/chat"
+	"github.com/brainart16/brenox/internal/calls"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -15,15 +16,17 @@ type Handler struct {
 	hub      *Hub
 	chat     *chat.Service
 	channels *channels.Service
+	calls    *calls.Service
 	cfg      Config
 	upgrader websocket.Upgrader
 }
 
-func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service, cfg Config) *Handler {
+func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service, callsService *calls.Service, cfg Config) *Handler {
 	return &Handler{
 		hub:      hub,
 		chat:     chatService,
 		channels: channelsService,
+		calls:    callsService,
 		cfg:      cfg,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -92,6 +95,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 		remoteIP:    remoteIP,
 		hub:         h.hub,
 		chat:        h.chat,
+		calls:       h.calls,
 		send:        make(chan Event, clientSendBuffer),
 	}
 

@@ -208,18 +208,42 @@ func (h *Hub) deliver(event Event) {
 	}
 	h.mu.RUnlock()
 
+	if isCallSignal(event.Type) {
+		h.deliverCallSignal(event, targets)
+		return
+	}
+
 	for _, client := range targets {
-		select {
-		case client.send <- event:
-		default:
-			slog.Warn("client send buffer full, disconnecting slow client",
-				"user_id", client.userID,
-				"channel_id", client.channelID,
-			)
-			go func(c *Client) {
-				h.unregister <- c
-			}(client)
+		h.sendToClient(client, event)
+	}
+}
+
+func (h *Hub) deliverCallSignal(event Event, targets []*Client) {
+	toUserID := payloadInt64(event.Payload, "to_user_id")
+	fromUserID := payloadInt64(event.Payload, "from_user_id")
+
+	for _, client := range targets {
+		if toUserID != 0 && client.userID != toUserID {
+			continue
 		}
+		if toUserID == 0 && fromUserID != 0 && client.userID == fromUserID {
+			continue
+		}
+		h.sendToClient(client, event)
+	}
+}
+
+func (h *Hub) sendToClient(client *Client, event Event) {
+	select {
+	case client.send <- event:
+	default:
+		slog.Warn("client send buffer full, disconnecting slow client",
+			"user_id", client.userID,
+			"channel_id", client.channelID,
+		)
+		go func(c *Client) {
+			h.unregister <- c
+		}(client)
 	}
 }
 

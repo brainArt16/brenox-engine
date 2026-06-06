@@ -26,6 +26,7 @@ import (
 	"github.com/brainart16/brenox/internal/authz"
 	channelsHandler "github.com/brainart16/brenox/internal/channels"
 	chatHandler "github.com/brainart16/brenox/internal/chat"
+	callsHandler "github.com/brainart16/brenox/internal/calls"
 	middleware "github.com/brainart16/brenox/internal/middleware"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
@@ -101,7 +102,15 @@ func main() {
 	attachmentHandler := attachments.NewHandler(attachmentService)
 	chatService.SetAttachmentAttacher(attachments.NewChatAttacher(attachmentService))
 
-	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, wsConfig)
+	callsService := callsHandler.NewService(
+		queries,
+		realtimeHandler.NewCallBroadcaster(hub),
+		notificationService,
+		channelsService,
+	)
+	callsHandlerInstance := callsHandler.NewHandler(callsService)
+
+	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
 
 	router := gin.Default()
@@ -119,6 +128,8 @@ func main() {
 	api.GET("/notifications", notificationHandler.List)
 	api.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
 	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
+	api.POST("/calls/:id/join", callsHandlerInstance.JoinCall)
+	api.POST("/calls/:id/leave", callsHandlerInstance.LeaveCall)
 
 	api.POST("/workspaces", workspacesHandlerInstance.CreateWorkspace)
 	api.GET("/workspaces", workspacesHandlerInstance.ListWorkspaces)
@@ -138,6 +149,7 @@ func main() {
 	workspaceAPI.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
 	workspaceAPI.POST("/channels/:id/messages/:message_id/attachments", attachmentHandler.AttachToMessage)
 	workspaceAPI.GET("/channels/:id/messages/:message_id/attachments", attachmentHandler.ListByMessage)
+	workspaceAPI.POST("/channels/:id/calls", callsHandlerInstance.InitiateCall)
 
 	api.GET("/presence", presenceHandler.GetGlobalPresence)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)

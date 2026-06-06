@@ -53,6 +53,45 @@ Ephemeral typing indicators (not stored). Broadcast to other channel members.
 { "type": "typing.stop" }
 ```
 
+### `call.offer` / `call.answer` / `call.ice`
+
+WebRTC signaling for voice calls. Requires an active call participant. Relayed to channel subscribers; when `to_user_id` is set, only that user receives the event. See [WEBRTC.md](WEBRTC.md).
+
+```json
+{
+  "type": "call.offer",
+  "payload": {
+    "call_id": 1,
+    "to_user_id": 2,
+    "sdp": "v=0..."
+  }
+}
+```
+
+```json
+{
+  "type": "call.answer",
+  "payload": {
+    "call_id": 1,
+    "to_user_id": 1,
+    "sdp": "v=0..."
+  }
+}
+```
+
+```json
+{
+  "type": "call.ice",
+  "payload": {
+    "call_id": 1,
+    "to_user_id": 2,
+    "candidate": "{...}"
+  }
+}
+```
+
+The server adds `from_user_id` to the relayed payload.
+
 ## Server → Client
 
 ### `message.new`
@@ -187,6 +226,25 @@ Delivered to the target user's WebSocket connections only (via Redis `user:{id}:
 ```
 
 Notification types: `mention`, `reply`, `channel_invite`, `workspace_invite`, `call_invite`.
+
+### `call.join` / `call.leave` / `call.end`
+
+Call lifecycle events broadcast to channel members. Triggered by REST join/leave and when the last participant leaves.
+
+```json
+{
+  "type": "call.join",
+  "workspace_id": 1,
+  "channel_id": 1,
+  "payload": {
+    "call_id": 1,
+    "user_id": 2,
+    "status": "active"
+  }
+}
+```
+
+Signaling relays (`call.offer`, `call.answer`, `call.ice`) include `from_user_id` in the payload. Full flow: [WEBRTC.md](WEBRTC.md).
 
 ### `error`
 

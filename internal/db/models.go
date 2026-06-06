@@ -19,6 +19,24 @@ type Attachment struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+type Call struct {
+	ID          int64
+	ChannelID   int64
+	WorkspaceID int64
+	InitiatorID int64
+	Status      string
+	CreatedAt   pgtype.Timestamptz
+	EndedAt     pgtype.Timestamptz
+}
+
+type CallParticipant struct {
+	ID       int64
+	CallID   int64
+	UserID   int64
+	JoinedAt pgtype.Timestamptz
+	LeftAt   pgtype.Timestamptz
+}
+
 type Channel struct {
 	ID          int64
 	Name        string
