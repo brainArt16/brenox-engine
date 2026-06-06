@@ -9,7 +9,8 @@
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "token", "value": "" },
     { "key": "workspaceId", "value": "1" },
-    { "key": "channelId", "value": "1" }
+    { "key": "channelId", "value": "1" },
+    { "key": "messageId", "value": "1" }
   ],
   "item": [
     {
@@ -286,6 +287,55 @@
                 { "key": "offset", "value": "0" }
               ]
             }
+          }
+        },
+        {
+          "name": "List Message Attachments",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/messages/{{messageId}}/attachments"
+          }
+        },
+        {
+          "name": "Attach Files To Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attachments\": [\n    {\n      \"object_key\": \"uploads/1/example/doc.pdf\",\n      \"file_name\": \"doc.pdf\",\n      \"mime_type\": \"application/pdf\",\n      \"size_bytes\": 1024\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/messages/{{messageId}}/attachments"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Create Upload URL",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"file_name\": \"doc.pdf\",\n  \"mime_type\": \"application/pdf\",\n  \"size_bytes\": 1024\n}"
+            },
+            "url": "{{baseUrl}}/api/uploads",
+            "description": "Returns presigned PUT URL and object_key. Upload file to upload_url, then attach via message create or attachments endpoint."
           }
         }
       ]

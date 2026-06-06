@@ -26,6 +26,8 @@ internal/
   realtime/           WebSocket hub, Redis broker
   presence/           Redis-backed presence store + API
   notifications/      Notification persistence + dispatch
+  storage/            S3/MinIO object storage
+  attachments/        File uploads + message attachments
   redis/              Redis client wrapper
   health/             Health check handler
   database/           Postgres pool
@@ -43,7 +45,7 @@ docs/
 
 Prerequisites: Go 1.20+, Docker, Make.
 
-1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, `REDIS_URL`, and optional WebSocket vars.
+1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, `REDIS_URL`, `S3_*`, and optional WebSocket vars.
 
 2. Start database and run migrations:
 
@@ -90,8 +92,11 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/workspaces/:workspace_id/channels` | JWT | List workspace channels |
 | POST | `/api/workspaces/:workspace_id/channels/:id/join` | JWT | Join channel |
 | POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Leave channel |
-| POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message |
+| POST | `/api/uploads` | JWT | Get presigned upload URL |
+| POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message (optional `attachments`) |
 | GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Message history |
+| POST | `/api/workspaces/:workspace_id/channels/:id/messages/:message_id/attachments` | JWT | Attach files to message |
+| GET | `/api/workspaces/:workspace_id/channels/:id/messages/:message_id/attachments` | JWT | List message attachments (presigned URLs) |
 | GET | `/api/notifications` | JWT | List notifications (`?limit=&offset=`) |
 | PATCH | `/api/notifications/:id/read` | JWT | Mark notification read |
 | POST | `/api/notifications/read-all` | JWT | Mark all notifications read |

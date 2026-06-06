@@ -70,6 +70,7 @@ func (c *Client) handleMessageSend(event Event) {
 		c.userID,
 		content,
 		nil,
+		nil,
 	)
 	if err != nil {
 		c.handleSendMessageError(err)

@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 8 complete)
+> **Last updated:** 2026-06-06 (Phase 9 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -37,7 +37,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 6 | Redis & Horizontal Scale | 🟢 Complete | 10 / 10 |
 | 7 | Presence (Production) | 🟢 Complete | 8 / 8 |
 | 8 | Notifications | 🟢 Complete | 10 / 10 |
-| 9 | File Attachments | 🔴 Not started | 0 / 10 |
+| 9 | File Attachments | 🟢 Complete | 10 / 10 |
 | 10 | WebRTC — Voice | 🔴 Not started | 0 / 12 |
 | 11 | WebRTC — Video | 🔴 Not started | 0 / 8 |
 | 12 | Public Developer API | 🔴 Not started | 0 / 12 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~62% (Phases 0–8 complete)
+**Overall backend completion:** ~69% (Phases 0–9 complete)
 
 ---
 
@@ -333,16 +333,16 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 9.1 | Migration: `attachments` table (id, message_id, file_url, mime_type, size, created_at) | [ ] |
-| 9.2 | S3-compatible storage client (MinIO for local dev) | [ ] |
-| 9.3 | Add MinIO to `docker-compose.dev.yaml` | [ ] |
-| 9.4 | `POST /api/uploads` — presigned URL or direct upload | [ ] |
-| 9.5 | Attach file to message (metadata in message or separate link) | [ ] |
-| 9.6 | Max file size validation | [ ] |
-| 9.7 | Allowed MIME type whitelist | [ ] |
-| 9.8 | `GET /api/messages/:id/attachments` | [ ] |
-| 9.9 | Realtime event: `message.updated` when attachment added | [ ] |
-| 9.10 | Virus scan hook (interface/stub for future) | [ ] |
+| 9.1 | Migration: `attachments` table (id, message_id, file_url, mime_type, size, created_at) | [x] |
+| 9.2 | S3-compatible storage client (MinIO for local dev) | [x] |
+| 9.3 | Add MinIO to `docker-compose.dev.yaml` | [x] |
+| 9.4 | `POST /api/uploads` — presigned URL or direct upload | [x] |
+| 9.5 | Attach file to message (metadata in message or separate link) | [x] |
+| 9.6 | Max file size validation | [x] |
+| 9.7 | Allowed MIME type whitelist | [x] |
+| 9.8 | `GET /api/messages/:id/attachments` | [x] |
+| 9.9 | Realtime event: `message.updated` when attachment added | [x] |
+| 9.10 | Virus scan hook (interface/stub for future) | [x] |
 
 ---
 

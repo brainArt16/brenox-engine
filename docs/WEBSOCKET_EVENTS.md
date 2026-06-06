@@ -75,6 +75,35 @@ New message saved to the database.
 }
 ```
 
+### `message.updated`
+
+Message metadata changed (attachments added).
+
+```json
+{
+  "type": "message.updated",
+  "workspace_id": 1,
+  "channel_id": 1,
+  "payload": {
+    "id": 1,
+    "channel_id": 1,
+    "sender_id": 2,
+    "content": "see attached",
+    "created_at": "2026-06-06T12:00:00Z",
+    "attachments": [
+      {
+        "id": 1,
+        "file_name": "doc.pdf",
+        "mime_type": "application/pdf",
+        "size_bytes": 1024,
+        "url": "https://…",
+        "created_at": "2026-06-06T12:00:01Z"
+      }
+    ]
+  }
+}
+```
+
 ### `typing.start` / `typing.stop`
 
 Another member started or stopped typing.

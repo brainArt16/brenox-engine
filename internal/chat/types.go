@@ -20,8 +20,16 @@ var (
 )
 
 type CreateMessageRequest struct {
-	Content          string `json:"content"`
-	ReplyToMessageID *int64 `json:"reply_to_message_id,omitempty"`
+	Content          string            `json:"content"`
+	ReplyToMessageID *int64            `json:"reply_to_message_id,omitempty"`
+	Attachments      []AttachmentInput `json:"attachments,omitempty"`
+}
+
+type AttachmentInput struct {
+	ObjectKey string `json:"object_key"`
+	FileName  string `json:"file_name"`
+	MimeType  string `json:"mime_type"`
+	SizeBytes int64  `json:"size_bytes"`
 }
 
 type MessageResponse struct {

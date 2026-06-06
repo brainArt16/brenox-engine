@@ -13,9 +13,20 @@ import (
 )
 
 type Service struct {
-	queries  *db.Queries
-	authz    *authz.Service
-	notifier Notifier
+	queries    *db.Queries
+	authz      *authz.Service
+	notifier   Notifier
+	attacher   AttachmentAttacher
+}
+
+type AttachmentAttacher interface {
+	AttachOnMessageCreate(
+		ctx context.Context,
+		workspaceID, channelID int64,
+		message db.Message,
+		userID int64,
+		inputs []AttachmentInput,
+	) (any, error)
 }
 
 func NewService(queries *db.Queries, authzService *authz.Service) *Service {
@@ -29,9 +40,13 @@ func (s *Service) SetNotifier(notifier Notifier) {
 	s.notifier = notifier
 }
 
-func normalizeContent(content string) (string, error) {
+func (s *Service) SetAttachmentAttacher(attacher AttachmentAttacher) {
+	s.attacher = attacher
+}
+
+func normalizeContent(content string, allowEmpty bool) (string, error) {
 	content = strings.TrimSpace(content)
-	if content == "" {
+	if content == "" && !allowEmpty {
 		return "", ErrEmptyContent
 	}
 	if len(content) > MaxMessageLength {
@@ -90,8 +105,9 @@ func (s *Service) SendMessage(
 	senderID int64,
 	content string,
 	replyToMessageID *int64,
+	attachments []AttachmentInput,
 ) (*db.Message, error) {
-	normalized, err := normalizeContent(content)
+	normalized, err := normalizeContent(content, len(attachments) > 0)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +150,10 @@ func (s *Service) SendMessage(
 		if err == nil {
 			_ = s.notifier.HandleMessageCreated(ctx, workspaceID, channelID, senderID, *message, replyToMessageID, sender.Username)
 		}
+	}
+
+	if s.attacher != nil && len(attachments) > 0 {
+		_, _ = s.attacher.AttachOnMessageCreate(ctx, workspaceID, channelID, *message, senderID, attachments)
 	}
 
 	return message, nil

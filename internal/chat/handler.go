@@ -42,6 +42,7 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 		userID,
 		req.Content,
 		req.ReplyToMessageID,
+		req.Attachments,
 	)
 	if err != nil {
 		writeServiceError(c, err)

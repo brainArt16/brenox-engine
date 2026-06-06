@@ -14,11 +14,13 @@ import (
 	"github.com/joho/godotenv"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/attachments"
 	"github.com/brainart16/brenox/internal/database"
 	"github.com/brainart16/brenox/internal/health"
 	"github.com/brainart16/brenox/internal/notifications"
 	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
+	"github.com/brainart16/brenox/internal/storage"
 
 	authHandler "github.com/brainart16/brenox/internal/auth"
 	"github.com/brainart16/brenox/internal/authz"
@@ -45,6 +47,12 @@ func main() {
 	redisClient, err := redisutil.NewClient()
 	if err != nil {
 		slog.Warn("redis unavailable, running in local-only realtime mode", "error", err)
+	}
+
+	s3Config := storage.LoadConfig()
+	objectStore, err := storage.NewClient(s3Config)
+	if err != nil {
+		slog.Warn("object storage unavailable, file uploads disabled", "error", err)
 	}
 
 	queries := db.New(pool)
@@ -83,6 +91,16 @@ func main() {
 	chatService.SetNotifier(notificationService)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
+	attachmentService := attachments.NewService(
+		queries,
+		objectStore,
+		attachments.NewNoopVirusScanner(),
+		realtimeHandler.NewMessageBroadcaster(hub),
+		chatService,
+	)
+	attachmentHandler := attachments.NewHandler(attachmentService)
+	chatService.SetAttachmentAttacher(attachments.NewChatAttacher(attachmentService))
+
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
 
@@ -97,6 +115,7 @@ func main() {
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware())
 
+	api.POST("/uploads", attachmentHandler.CreateUpload)
 	api.GET("/notifications", notificationHandler.List)
 	api.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
 	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
@@ -117,6 +136,8 @@ func main() {
 	workspaceAPI.POST("/channels/:id/leave", channelsHandlerInstance.LeaveChannel)
 	workspaceAPI.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
 	workspaceAPI.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
+	workspaceAPI.POST("/channels/:id/messages/:message_id/attachments", attachmentHandler.AttachToMessage)
+	workspaceAPI.GET("/channels/:id/messages/:message_id/attachments", attachmentHandler.ListByMessage)
 
 	api.GET("/presence", presenceHandler.GetGlobalPresence)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
