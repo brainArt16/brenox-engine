@@ -89,6 +89,32 @@
             "url": "{{baseUrl}}/api/channels",
             "description": "List channels the authenticated user belongs to."
           }
+        },
+        {
+          "name": "Join Channel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/channels/{{channelId}}/join",
+            "description": "Add the authenticated user to a channel."
+          }
+        },
+        {
+          "name": "Leave Channel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/channels/{{channelId}}/leave",
+            "description": "Remove the authenticated user from a channel. Channel owner cannot leave."
+          }
         }
       ]
     },

@@ -48,7 +48,7 @@ func main() {
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
 	channelsService := channelsHandler.NewService(queries)
-	channelsHandlerInstance := channelsHandler.NewHandler(channelsService)
+	channelsHandlerInstance := channelsHandler.NewHandler(channelsService, hub)
 	chatService := chatHandler.NewService(queries)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
@@ -70,6 +70,8 @@ func main() {
 	// Register channel routes
 	api.POST("/channels", channelsHandlerInstance.CreateChannel)
 	api.GET("/channels", channelsHandlerInstance.GetChannels)
+	api.POST("/channels/:id/join", channelsHandlerInstance.JoinChannel)
+	api.POST("/channels/:id/leave", channelsHandlerInstance.LeaveChannel)
 	api.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
 	api.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
 

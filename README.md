@@ -61,6 +61,8 @@ Server listens on `:8080`.
 | POST | `/auth/login` | No | Login, returns JWT |
 | POST | `/api/channels` | JWT | Create channel |
 | GET | `/api/channels` | JWT | List user channels |
+| POST | `/api/channels/:id/join` | JWT | Join channel |
+| POST | `/api/channels/:id/leave` | JWT | Leave channel (owner blocked) |
 | POST | `/api/channels/:id/messages` | JWT | Send message (member only) |
 | GET | `/api/channels/:id/messages` | JWT | Message history (`limit`, `offset`) |
 | GET | `/api/presence` | JWT | List globally online user IDs |

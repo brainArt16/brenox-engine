@@ -62,6 +62,49 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 	return i, err
 }
 
+const getChannelByID = `-- name: GetChannelByID :one
+SELECT id, name, owner_id, created_at, updated_at
+FROM channels
+WHERE id = $1
+`
+
+func (q *Queries) GetChannelByID(ctx context.Context, id int64) (Channel, error) {
+	row := q.db.QueryRow(ctx, getChannelByID, id)
+	var i Channel
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getChannelMember = `-- name: GetChannelMember :one
+SELECT id, channel_id, user_id, created_at, updated_at
+FROM channel_members
+WHERE channel_id = $1 AND user_id = $2
+`
+
+type GetChannelMemberParams struct {
+	ChannelID int64
+	UserID    int64
+}
+
+func (q *Queries) GetChannelMember(ctx context.Context, arg GetChannelMemberParams) (ChannelMember, error) {
+	row := q.db.QueryRow(ctx, getChannelMember, arg.ChannelID, arg.UserID)
+	var i ChannelMember
+	err := row.Scan(
+		&i.ID,
+		&i.ChannelID,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getChannelsByUser = `-- name: GetChannelsByUser :many
 SELECT
     c.id,
@@ -125,4 +168,19 @@ func (q *Queries) IsChannelMember(ctx context.Context, arg IsChannelMemberParams
 	var is_member bool
 	err := row.Scan(&is_member)
 	return is_member, err
+}
+
+const removeChannelMember = `-- name: RemoveChannelMember :exec
+DELETE FROM channel_members
+WHERE channel_id = $1 AND user_id = $2
+`
+
+type RemoveChannelMemberParams struct {
+	ChannelID int64
+	UserID    int64
+}
+
+func (q *Queries) RemoveChannelMember(ctx context.Context, arg RemoveChannelMemberParams) error {
+	_, err := q.db.Exec(ctx, removeChannelMember, arg.ChannelID, arg.UserID)
+	return err
 }

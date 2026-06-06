@@ -56,6 +56,18 @@ User connection count crossed 0 ↔ 1 globally.
 }
 ```
 
+### `member.joined` / `member.left`
+
+Channel membership changed via REST join/leave.
+
+```json
+{
+  "type": "member.joined",
+  "channel_id": 1,
+  "payload": { "user_id": 2 }
+}
+```
+
 ### `error`
 
 Sent to the client that triggered the failure.

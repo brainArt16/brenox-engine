@@ -37,3 +37,17 @@ SELECT EXISTS(
     FROM channel_members
     WHERE channel_id = $1 AND user_id = $2
 )::boolean AS is_member;
+
+-- name: GetChannelByID :one
+SELECT id, name, owner_id, created_at, updated_at
+FROM channels
+WHERE id = $1;
+
+-- name: GetChannelMember :one
+SELECT id, channel_id, user_id, created_at, updated_at
+FROM channel_members
+WHERE channel_id = $1 AND user_id = $2;
+
+-- name: RemoveChannelMember :exec
+DELETE FROM channel_members
+WHERE channel_id = $1 AND user_id = $2;
