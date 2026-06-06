@@ -16,6 +16,7 @@ import (
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/database"
 	"github.com/brainart16/brenox/internal/health"
+	"github.com/brainart16/brenox/internal/notifications"
 	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
 
@@ -60,16 +61,26 @@ func main() {
 	hub.SetPresenceTracker(presenceService)
 	presenceHandler := presence.NewHandler(presenceService)
 
+	notificationService := notifications.NewService(
+		queries,
+		realtimeHandler.NewNotificationDeliverer(hub),
+		notifications.NewNoopPushSender(),
+		notifications.NewNoopEmailSender(),
+	)
+	notificationHandler := notifications.NewHandler(notificationService)
+
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
 
 	workspacesService := workspacesHandler.NewService(queries, authzService)
+	workspacesService.SetInviteNotifier(notificationService)
 	workspacesHandlerInstance := workspacesHandler.NewHandler(workspacesService)
 
 	channelsService := channelsHandler.NewService(queries, authzService)
 	channelsHandlerInstance := channelsHandler.NewHandler(channelsService, hub)
 
 	chatService := chatHandler.NewService(queries, authzService)
+	chatService.SetNotifier(notificationService)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, wsConfig)
@@ -85,6 +96,10 @@ func main() {
 
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware())
+
+	api.GET("/notifications", notificationHandler.List)
+	api.PATCH("/notifications/:id/read", notificationHandler.MarkRead)
+	api.POST("/notifications/read-all", notificationHandler.MarkAllRead)
 
 	api.POST("/workspaces", workspacesHandlerInstance.CreateWorkspace)
 	api.GET("/workspaces", workspacesHandlerInstance.ListWorkspaces)

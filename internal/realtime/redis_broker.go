@@ -60,6 +60,63 @@ func (b *redisBroker) Publish(event Event) {
 	}
 }
 
+func (b *redisBroker) PublishToUser(userID int64, event Event) {
+	if event.EventID == "" {
+		event = NewOutboundEvent(event.Type, event.WorkspaceID, event.ChannelID, event.Payload)
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("marshal realtime event", "error", err)
+		return
+	}
+
+	topic := UserTopic(userID)
+	if err := b.client.Publish(b.ctx, topic, data).Err(); err != nil {
+		slog.Error("redis user publish failed", "topic", topic, "error", err)
+	}
+}
+
+func (b *redisBroker) EnsureUserSubscribed(userID int64) {
+	topic := UserTopic(userID)
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.subs[topic]++
+	if b.subs[topic] == 1 {
+		if err := b.pubsub.Subscribe(b.ctx, topic); err != nil {
+			slog.Error("redis user subscribe failed", "topic", topic, "error", err)
+			b.subs[topic]--
+			if b.subs[topic] == 0 {
+				delete(b.subs, topic)
+			}
+		}
+	}
+}
+
+func (b *redisBroker) MaybeUnsubscribeUser(userID int64) {
+	topic := UserTopic(userID)
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	_, ok := b.subs[topic]
+	if !ok {
+		return
+	}
+
+	b.subs[topic]--
+	if b.subs[topic] > 0 {
+		return
+	}
+
+	delete(b.subs, topic)
+	if err := b.pubsub.Unsubscribe(b.ctx, topic); err != nil {
+		slog.Error("redis user unsubscribe failed", "topic", topic, "error", err)
+	}
+}
+
 func (b *redisBroker) EnsureSubscribed(workspaceID, channelID int64) {
 	topic := ChannelTopic(workspaceID, channelID)
 
@@ -115,6 +172,11 @@ func (b *redisBroker) readLoop() {
 			var event Event
 			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
 				slog.Warn("invalid redis event payload", "error", err)
+				continue
+			}
+
+			if userID, ok := parseUserTopic(msg.Channel); ok {
+				b.hub.notifyUserLocal(userID, event)
 				continue
 			}
 

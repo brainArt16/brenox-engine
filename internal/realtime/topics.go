@@ -6,3 +6,8 @@ import "fmt"
 func ChannelTopic(workspaceID, channelID int64) string {
 	return fmt.Sprintf("workspace:%d:channel:%d", workspaceID, channelID)
 }
+
+// UserTopic returns the Redis pub/sub channel for user-specific events.
+func UserTopic(userID int64) string {
+	return fmt.Sprintf("user:%d:notifications", userID)
+}

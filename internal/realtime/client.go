@@ -69,6 +69,7 @@ func (c *Client) handleMessageSend(event Event) {
 		c.channelID,
 		c.userID,
 		content,
+		nil,
 	)
 	if err != nil {
 		c.handleSendMessageError(err)

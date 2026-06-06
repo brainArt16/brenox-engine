@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 7 complete)
+> **Last updated:** 2026-06-06 (Phase 8 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -36,7 +36,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 5 | Realtime Hardening | 🟢 Complete | 10 / 10 |
 | 6 | Redis & Horizontal Scale | 🟢 Complete | 10 / 10 |
 | 7 | Presence (Production) | 🟢 Complete | 8 / 8 |
-| 8 | Notifications | 🔴 Not started | 0 / 10 |
+| 8 | Notifications | 🟢 Complete | 10 / 10 |
 | 9 | File Attachments | 🔴 Not started | 0 / 10 |
 | 10 | WebRTC — Voice | 🔴 Not started | 0 / 12 |
 | 11 | WebRTC — Video | 🔴 Not started | 0 / 8 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~55% (Phases 0–7 complete)
+**Overall backend completion:** ~62% (Phases 0–8 complete)
 
 ---
 
@@ -312,16 +312,16 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 8.1 | Migration: `notifications` table | [ ] |
-| 8.2 | Notification types enum: mention, reply, channel_invite, workspace_invite, call_invite | [ ] |
-| 8.3 | `internal/notifications` service | [ ] |
-| 8.4 | `GET /api/notifications` — list with pagination | [ ] |
-| 8.5 | `PATCH /api/notifications/:id/read` — mark read | [ ] |
-| 8.6 | `POST /api/notifications/read-all` | [ ] |
-| 8.7 | Emit `notification.new` over WebSocket | [ ] |
-| 8.8 | @mention parsing in messages → create mention notifications | [ ] |
-| 8.9 | Push notification adapter interface (FCM/APNs — stub first) | [ ] |
-| 8.10 | Email notification adapter interface (stub first) | [ ] |
+| 8.1 | Migration: `notifications` table | [x] |
+| 8.2 | Notification types enum: mention, reply, channel_invite, workspace_invite, call_invite | [x] |
+| 8.3 | `internal/notifications` service | [x] |
+| 8.4 | `GET /api/notifications` — list with pagination | [x] |
+| 8.5 | `PATCH /api/notifications/:id/read` — mark read | [x] |
+| 8.6 | `POST /api/notifications/read-all` | [x] |
+| 8.7 | Emit `notification.new` over WebSocket | [x] |
+| 8.8 | @mention parsing in messages → create mention notifications | [x] |
+| 8.9 | Push notification adapter interface (FCM/APNs — stub first) | [x] |
+| 8.10 | Email notification adapter interface (stub first) | [x] |
 
 ---
 

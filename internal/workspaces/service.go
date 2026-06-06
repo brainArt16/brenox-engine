@@ -14,8 +14,9 @@ import (
 )
 
 type Service struct {
-	queries *db.Queries
-	authz   *authz.Service
+	queries  *db.Queries
+	authz    *authz.Service
+	notifier InviteNotifier
 }
 
 func NewService(queries *db.Queries, authzService *authz.Service) *Service {
@@ -23,6 +24,10 @@ func NewService(queries *db.Queries, authzService *authz.Service) *Service {
 		queries: queries,
 		authz:   authzService,
 	}
+}
+
+func (s *Service) SetInviteNotifier(notifier InviteNotifier) {
+	s.notifier = notifier
 }
 
 func (s *Service) CreateWorkspace(

@@ -101,3 +101,22 @@ func (q *Queries) GetChannelMessages(ctx context.Context, arg GetChannelMessages
 	}
 	return items, nil
 }
+
+const getMessageByID = `-- name: GetMessageByID :one
+SELECT id, channel_id, sender_id, content, created_at
+FROM messages
+WHERE id = $1
+`
+
+func (q *Queries) GetMessageByID(ctx context.Context, id int64) (Message, error) {
+	row := q.db.QueryRow(ctx, getMessageByID, id)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.ChannelID,
+		&i.SenderID,
+		&i.Content,
+		&i.CreatedAt,
+	)
+	return i, err
+}

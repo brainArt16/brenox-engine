@@ -25,6 +25,7 @@ internal/
   chat/               Message persistence
   realtime/           WebSocket hub, Redis broker
   presence/           Redis-backed presence store + API
+  notifications/      Notification persistence + dispatch
   redis/              Redis client wrapper
   health/             Health check handler
   database/           Postgres pool
@@ -91,6 +92,9 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces/:workspace_id/channels/:id/leave` | JWT | Leave channel |
 | POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message |
 | GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Message history |
+| GET | `/api/notifications` | JWT | List notifications (`?limit=&offset=`) |
+| PATCH | `/api/notifications/:id/read` | JWT | Mark notification read |
+| POST | `/api/notifications/read-all` | JWT | Mark all notifications read |
 | GET | `/api/presence` | JWT | Globally online users (status, last_seen) |
 | GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
 | PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |

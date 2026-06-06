@@ -129,10 +129,15 @@ func (h *Hub) handleRegister(client *Client) {
 
 	h.userConnections[client.userID]++
 	h.ipConnections[client.remoteIP]++
+	firstUserOnNode := h.userConnections[client.userID] == 1
 	h.mu.Unlock()
 
 	if firstOnChannel && h.broker != nil {
 		h.broker.EnsureSubscribed(client.workspaceID, client.channelID)
+	}
+
+	if firstUserOnNode && h.broker != nil {
+		h.broker.EnsureUserSubscribed(client.userID)
 	}
 
 	if h.presence != nil {
@@ -162,7 +167,8 @@ func (h *Hub) handleUnregister(client *Client) {
 
 	h.userConnections[client.userID]--
 	h.ipConnections[client.remoteIP]--
-	if h.userConnections[client.userID] <= 0 {
+	lastUserOnNode := h.userConnections[client.userID] <= 0
+	if lastUserOnNode {
 		delete(h.userConnections, client.userID)
 	}
 	if h.ipConnections[client.remoteIP] <= 0 {
@@ -172,6 +178,10 @@ func (h *Hub) handleUnregister(client *Client) {
 
 	if lastOnChannel && h.broker != nil {
 		h.broker.MaybeUnsubscribe(client.workspaceID, client.channelID)
+	}
+
+	if lastUserOnNode && h.broker != nil {
+		h.broker.MaybeUnsubscribeUser(client.userID)
 	}
 
 	close(client.send)
@@ -246,5 +256,32 @@ func (h *Hub) touchPresence(userID int64) {
 	}
 	if err := h.presence.Touch(context.Background(), userID); err != nil {
 		slog.Warn("presence touch failed", "user_id", userID, "error", err)
+	}
+}
+
+func (h *Hub) notifyUserLocal(userID int64, event Event) {
+	h.mu.RLock()
+	targets := make([]*Client, 0)
+	for _, clients := range h.channels {
+		for client := range clients {
+			if client.userID == userID {
+				targets = append(targets, client)
+			}
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, client := range targets {
+		select {
+		case client.send <- event:
+		default:
+			slog.Warn("client send buffer full, disconnecting slow client",
+				"user_id", client.userID,
+				"channel_id", client.channelID,
+			)
+			go func(c *Client) {
+				h.unregister <- c
+			}(client)
+		}
 	}
 }

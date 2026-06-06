@@ -25,3 +25,8 @@ INNER JOIN users u
 WHERE m.channel_id = $1
 ORDER BY m.created_at ASC
 LIMIT $2 OFFSET $3;
+
+-- name: GetMessageByID :one
+SELECT *
+FROM messages
+WHERE id = $1;

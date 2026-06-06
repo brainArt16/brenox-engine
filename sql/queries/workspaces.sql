@@ -76,6 +76,16 @@ SELECT
 FROM workspace_members
 WHERE workspace_id = $1 AND user_id = $2;
 
+-- name: GetWorkspaceMemberByUsername :one
+SELECT
+    wm.user_id,
+    u.username,
+    u.email
+FROM workspace_members wm
+INNER JOIN users u
+    ON u.id = wm.user_id
+WHERE wm.workspace_id = $1 AND LOWER(u.username) = LOWER($2);
+
 -- name: ListWorkspaceMembers :many
 SELECT
     wm.id,

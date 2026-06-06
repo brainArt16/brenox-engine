@@ -42,6 +42,17 @@ type Message struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type Notification struct {
+	ID        int64
+	UserID    int64
+	Type      string
+	Title     string
+	Body      string
+	Data      []byte
+	ReadAt    pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+}
+
 type User struct {
 	ID           int64
 	Email        string

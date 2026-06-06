@@ -20,7 +20,8 @@ var (
 )
 
 type CreateMessageRequest struct {
-	Content string `json:"content"`
+	Content          string `json:"content"`
+	ReplyToMessageID *int64 `json:"reply_to_message_id,omitempty"`
 }
 
 type MessageResponse struct {

@@ -152,6 +152,35 @@ func (q *Queries) GetWorkspaceMember(ctx context.Context, arg GetWorkspaceMember
 	return i, err
 }
 
+const getWorkspaceMemberByUsername = `-- name: GetWorkspaceMemberByUsername :one
+SELECT
+    wm.user_id,
+    u.username,
+    u.email
+FROM workspace_members wm
+INNER JOIN users u
+    ON u.id = wm.user_id
+WHERE wm.workspace_id = $1 AND LOWER(u.username) = LOWER($2)
+`
+
+type GetWorkspaceMemberByUsernameParams struct {
+	WorkspaceID int64
+	Lower       string
+}
+
+type GetWorkspaceMemberByUsernameRow struct {
+	UserID   int64
+	Username string
+	Email    string
+}
+
+func (q *Queries) GetWorkspaceMemberByUsername(ctx context.Context, arg GetWorkspaceMemberByUsernameParams) (GetWorkspaceMemberByUsernameRow, error) {
+	row := q.db.QueryRow(ctx, getWorkspaceMemberByUsername, arg.WorkspaceID, arg.Lower)
+	var i GetWorkspaceMemberByUsernameRow
+	err := row.Scan(&i.UserID, &i.Username, &i.Email)
+	return i, err
+}
+
 const getWorkspacesByUser = `-- name: GetWorkspacesByUser :many
 SELECT
     w.id,

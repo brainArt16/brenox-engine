@@ -20,3 +20,8 @@ WHERE email = $1;
 SELECT *
 FROM users
 WHERE id = $1;
+
+-- name: GetUserByUsername :one
+SELECT *
+FROM users
+WHERE LOWER(username) = LOWER($1);

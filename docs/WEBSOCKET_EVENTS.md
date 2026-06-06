@@ -131,6 +131,34 @@ Channel membership changed via REST join/leave.
 }
 ```
 
+### `notification.new`
+
+Delivered to the target user's WebSocket connections only (via Redis `user:{id}:notifications` when scaled).
+
+```json
+{
+  "type": "notification.new",
+  "event_id": "…",
+  "timestamp": "2026-06-06T12:00:00Z",
+  "payload": {
+    "id": 1,
+    "type": "mention",
+    "title": "You were mentioned",
+    "body": "alice mentioned you in a message",
+    "data": {
+      "workspace_id": 1,
+      "channel_id": 2,
+      "message_id": 10,
+      "sender_id": 3
+    },
+    "read": false,
+    "created_at": "2026-06-06T12:00:00Z"
+  }
+}
+```
+
+Notification types: `mention`, `reply`, `channel_invite`, `workspace_invite`, `call_invite`.
+
 ### `error`
 
 Sent to the client that triggered the failure.

@@ -93,6 +93,14 @@ func (s *Service) AddMember(
 		return nil, err
 	}
 
+	if s.notifier != nil {
+		workspace, wErr := s.queries.GetWorkspaceByID(ctx, workspaceID)
+		actor, aErr := s.queries.GetUserByID(ctx, actorID)
+		if wErr == nil && aErr == nil {
+			_ = s.notifier.HandleWorkspaceInvite(ctx, workspaceID, actorID, user.ID, workspace.Name, actor.Username)
+		}
+	}
+
 	return &MemberResponse{
 		UserID:    user.ID,
 		Username:  user.Username,

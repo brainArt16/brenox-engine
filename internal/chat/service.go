@@ -13,8 +13,9 @@ import (
 )
 
 type Service struct {
-	queries *db.Queries
-	authz   *authz.Service
+	queries  *db.Queries
+	authz    *authz.Service
+	notifier Notifier
 }
 
 func NewService(queries *db.Queries, authzService *authz.Service) *Service {
@@ -22,6 +23,10 @@ func NewService(queries *db.Queries, authzService *authz.Service) *Service {
 		queries: queries,
 		authz:   authzService,
 	}
+}
+
+func (s *Service) SetNotifier(notifier Notifier) {
+	s.notifier = notifier
 }
 
 func normalizeContent(content string) (string, error) {
@@ -84,6 +89,7 @@ func (s *Service) SendMessage(
 	channelID int64,
 	senderID int64,
 	content string,
+	replyToMessageID *int64,
 ) (*db.Message, error) {
 	normalized, err := normalizeContent(content)
 	if err != nil {
@@ -118,7 +124,19 @@ func (s *Service) SendMessage(
 		return nil, err
 	}
 
-	return s.saveMessage(ctx, channelID, senderID, normalized)
+	message, err := s.saveMessage(ctx, channelID, senderID, normalized)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.notifier != nil {
+		sender, err := s.queries.GetUserByID(ctx, senderID)
+		if err == nil {
+			_ = s.notifier.HandleMessageCreated(ctx, workspaceID, channelID, senderID, *message, replyToMessageID, sender.Username)
+		}
+	}
+
+	return message, nil
 }
 
 // ListMessages returns paginated channel history for workspace channel members.

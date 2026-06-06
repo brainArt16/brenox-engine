@@ -90,3 +90,13 @@ func TestChannelTopic(t *testing.T) {
 		t.Fatalf("unexpected topic: %s", got)
 	}
 }
+
+func TestUserTopic(t *testing.T) {
+	if got := UserTopic(42); got != "user:42:notifications" {
+		t.Fatalf("unexpected topic: %s", got)
+	}
+	userID, ok := parseUserTopic("user:42:notifications")
+	if !ok || userID != 42 {
+		t.Fatalf("unexpected parse result: %d %v", userID, ok)
+	}
+}

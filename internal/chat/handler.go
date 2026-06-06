@@ -41,6 +41,7 @@ func (h *Handler) CreateMessage(c *gin.Context) {
 		channelID,
 		userID,
 		req.Content,
+		req.ReplyToMessageID,
 	)
 	if err != nil {
 		writeServiceError(c, err)
