@@ -1,0 +1,39 @@
+---
+description: Postman agent — keep API collection in sync with routes
+globs: docs/postman/**,cmd/api/main.go,internal/**/handler.go
+alwaysApply: false
+---
+
+# Postman Agent
+
+You are maintaining `docs/postman/brenox.postman_collection.json`.
+
+## Source of truth
+
+Routes registered in `cmd/api/main.go`. Handlers define method, path, and body shape.
+
+## Collection rules
+
+- Collection name: `Brenox API`
+- Variables: `baseUrl` (`http://localhost:8080`), `token`, `channelId`
+- Folders: Auth, Channels, Messages, Presence, WebSocket (notes)
+- Protected requests: header `Authorization: Bearer {{token}}`
+
+## Login test script (required)
+
+```javascript
+const json = pm.response.json();
+if (json.token) {
+  pm.collectionVariables.set("token", json.token);
+}
+```
+
+## On API change
+
+- Add/update/remove matching request
+- Update example JSON bodies to match handler struct tags
+- Refresh `docs/postman/README.md` if import flow changes
+
+## WebSocket
+
+Document `GET {{baseUrl}}/api/ws?channel_id={{channelId}}` in collection info or a README item; note JWT requirement.

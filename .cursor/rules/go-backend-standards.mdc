@@ -1,0 +1,43 @@
+---
+description: Go backend coding standards — structure, docs, and clarity
+globs: "**/*.go"
+alwaysApply: false
+---
+
+# Go Backend Standards
+
+## Layering
+
+```
+Handler  → parse HTTP, validate input, format response
+Service  → business logic, authorization checks, orchestration
+db.Queries → SQL via sqlc only
+```
+
+Handlers must not call SQL directly. Services must not import `gin`.
+
+## Package layout
+
+One domain per folder: `internal/auth`, `internal/channels`, `internal/chat`, `internal/realtime`.
+
+Wire dependencies in `cmd/api/main.go` only.
+
+## Comments
+
+- Package-level comment only when the package role is non-obvious.
+- Comment exported functions when behavior or errors are not obvious.
+- Do not narrate obvious code (`// increment counter`).
+
+## Naming
+
+- Handlers: `Register`, `Login`, `CreateChannel` — match route purpose.
+- Services: verb + noun (`SaveMessage`, `GetChannels`).
+- Errors: return `errors.New` or wrapped errors; handlers map to HTTP status.
+
+## Realtime events
+
+Use typed event names: `message.new`, `presence.online`. Document new events in `docs/WEBSOCKET_EVENTS.md` when that file exists.
+
+## After implementing
+
+Trigger documentation sync (see `AGENTS.md`).

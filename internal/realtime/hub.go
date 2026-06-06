@@ -1,5 +1,7 @@
 package realtime
 
+
+
 // Hub co-ordinates all connected clients and manages message broadcasting.
 type Hub struct {
 	// Connected clients registry. Channel Id 
@@ -13,4 +15,7 @@ type Hub struct {
 
 	// Global broadcast channel. Event (Messages) sent here are broadcast to all clients.
 	broadcast chan Event
+
+	// Track online users. Use int instead of bool, one user can have multiple connections (e.g. multiple browser tabs).
+	onlineUsers map[int64]int
 }

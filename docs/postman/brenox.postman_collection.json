@@ -1,0 +1,117 @@
+{
+  "info": {
+    "_postman_id": "brenox-api-collection",
+    "name": "Brenox API",
+    "description": "Brenox realtime communication platform — HTTP API.\n\nImport `brenox.postman_environment.json` for local variables.\n\nRun **Auth → Login** first; the test script saves `token` automatically.\n\nWebSocket: `GET {{baseUrl}}/api/ws?channel_id={{channelId}}` with `Authorization: Bearer {{token}}`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "channelId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"demo_user\",\n  \"password\": \"secret123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Create a new user account."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  pm.environment.set('token', json.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"secret123\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login",
+            "description": "Authenticate and receive JWT. Token is saved to collection/environment variables."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Channels",
+      "item": [
+        {
+          "name": "Create Channel",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"general\"\n}"
+            },
+            "url": "{{baseUrl}}/api/channels",
+            "description": "Create a channel. Creator is added as a member."
+          }
+        },
+        {
+          "name": "List Channels",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/channels",
+            "description": "List channels the authenticated user belongs to."
+          }
+        }
+      ]
+    },
+    {
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "Connect (documentation)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ws?channel_id={{channelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "ws"],
+              "query": [{ "key": "channel_id", "value": "{{channelId}}" }]
+            },
+            "description": "Upgrade to WebSocket. Use Postman WebSocket tab or a WS client.\n\nSend JSON events:\n```json\n{ \"type\": \"message.send\", \"channel_id\": 1, \"payload\": { \"content\": \"hello\" } }\n```"
+          }
+        }
+      ]
+    }
+  ]
+}

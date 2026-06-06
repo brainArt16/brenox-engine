@@ -1,69 +1,82 @@
-# Brenox — Chat Platform
+# Brenox — Realtime Communication Platform
 
-Lightweight real-time chat server written in Go. Designed with clear separation between HTTP handlers, business services, and database repositories. Uses raw SQL and sqlc for queries and migrations for schema management.
+Go backend for a reusable realtime communication infrastructure (channels, messages, WebSocket events, presence). Uses Gin, PostgreSQL, sqlc, and gorilla/websocket.
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| [docs/BACKEND_TASKS.md](docs/BACKEND_TASKS.md) | Full task tracker and roadmap |
+| [docs/postman/](docs/postman/) | Postman collection for HTTP API |
+| [AGENTS.md](AGENTS.md) | Agent roles for doc sync (task tracker, README, Postman) |
 
 ## Repo layout
 
-- `cmd/api` — application entrypoint
-- `internal/` — business logic
-  - `database/`, `handlers/`, `services/`, `repositories/`, `middleware/`, `config/`
-- `sql/` — raw SQL: `queries/` and `migrations/`
-- `db/` — DB integration helpers and generated/query code
+```text
+cmd/api/              Application entrypoint
+internal/
+  auth/               Registration, login, JWT
+  channels/           Channel CRUD
+  chat/               Message persistence (service)
+  realtime/           WebSocket hub and handlers
+  db/                 sqlc-generated queries
+  database/           Postgres pool
+  middleware/         JWT auth middleware
+pkg/jwt/              JWT helpers
+sql/
+  migrations/         Schema migrations
+  queries/            sqlc query definitions
+docs/
+  BACKEND_TASKS.md    Task tracker
+  postman/            API collection
+```
 
 ## Quick start
 
-Prerequisites: Go 1.20+, Docker & docker-compose (optional), PostgreSQL.
+Prerequisites: Go 1.20+, Docker, Make.
 
-1. Copy `.env.example` to `.env` and configure DB connection.
+1. Copy `.env.example` to `.env` and set `DB_*` and `JWT_SECRET`.
 
-2. Start a local DB (docker-compose):
-
-```bash
-docker-compose -f docker-compose.yml up -d db
-```
-
-3.Run migrations (using `psql` or your preferred tool):
+2. Start database and run migrations:
 
 ```bash
-psql "$DATABASE_URL" -f sql/migrations/000001_init_schema.up.sql
-psql "$DATABASE_URL" -f sql/migrations/000002_create_channels.up.sql
-psql "$DATABASE_URL" -f sql/migrations/000003_create_messages.up.sql
+make db-start
+make migrate
 ```
 
-4.Build and run the API server:
+3. Run the API:
 
 ```bash
-go build ./cmd/api
-./api
+make run
 ```
 
-## Development notes
+Server listens on `:8080`.
 
-- Keep SQL in `sql/queries` and `sql/migrations` so schema and queries are explicit.
-- Database access belongs in `internal/repositories` — business logic goes in `internal/services`.
-- Handlers in `internal/handlers` should orchestrate request/response only.
+## API overview
 
-## Database & tooling
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/auth/register` | No | Create account |
+| POST | `/auth/login` | No | Login, returns JWT |
+| POST | `/api/channels` | JWT | Create channel |
+| GET | `/api/channels` | JWT | List user channels |
+| GET | `/api/ws?channel_id=` | JWT | WebSocket upgrade |
 
-- `sqlc.yaml` is present to generate type-safe DB code from SQL queries.
-- Migrations are in `sql/migrations` — add matching `up.sql` and `down.sql` files for each change.
+Import [docs/postman/brenox.postman_collection.json](docs/postman/brenox.postman_collection.json) for request examples.
+
+## Development
+
+- SQL lives in `sql/queries` and `sql/migrations`.
+- Regenerate sqlc: `sqlc generate`
+- New migration: `make migration <name>`
+- Handlers orchestrate HTTP only; business logic in services; DB via sqlc.
+
+After backend changes, run the documentation agents (see [AGENTS.md](AGENTS.md)).
 
 ## Testing
 
-- Add unit tests alongside packages. For DB integration tests, run them against a disposable Postgres (Testcontainers or a docker-compose DB).
-
-## Contributing
-
-- Open issues or PRs on the `main` branch. Keep changes focused and add tests for new behavior.
+Add unit tests alongside packages. Use Testcontainers or `make db-start` for integration tests.
 
 ## License
 
-This repository does not include a license file. Add one if you plan to publish.
-
----
-
-If you want, I can also:
-
-- Add a `.env.example` with recommended variables.
-- Add a Makefile target to run migrations and start the app.
-- Generate `sqlc` bindings and show how to run them.
+No license file yet.

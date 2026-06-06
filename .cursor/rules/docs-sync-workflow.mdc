@@ -1,0 +1,30 @@
+---
+description: Master workflow — sync task tracker, README, and Postman after backend changes
+alwaysApply: true
+---
+
+# Documentation Sync Workflow
+
+After completing backend implementation work, **always** run the three documentation agents before considering the task done.
+
+## Order
+
+1. **Task Tracker** → `docs/BACKEND_TASKS.md`
+2. **README** → `README.md` (if routes, setup, or layout changed)
+3. **Postman** → `docs/postman/brenox.postman_collection.json` (if HTTP API changed)
+
+Read `AGENTS.md` for each agent's checklist.
+
+## When to sync
+
+- Finished a `docs/BACKEND_TASKS.md` task
+- Changed routes in `cmd/api/main.go`
+- Added/changed handlers, services, migrations, or sqlc queries
+- Changed request/response contracts or auth
+
+## Rules
+
+- Do not mark tasks `[x]` unless implementation meets the task's exit criteria.
+- Keep README concise; detailed request examples live in Postman.
+- Postman paths must match registered routes exactly (currently auth is `/auth/*`, API is `/api/*`).
+- Add a changelog entry in `BACKEND_TASKS.md` for every sync pass.

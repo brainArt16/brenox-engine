@@ -382,4 +382,7 @@ MigrationBackup/
 # Environment variable files
 .env
 
+# Cursor hook session state (local edit tracking)
+.cursor/state/
+
 # End of https://www.toptal.com/developers/gitignore/api/go,vs

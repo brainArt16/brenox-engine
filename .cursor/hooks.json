@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/track-backend-edits.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/doc-sync-on-stop.sh",
+        "loop_limit": 1
+      }
+    ]
+  }
+}

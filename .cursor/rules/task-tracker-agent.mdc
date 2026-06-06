@@ -1,0 +1,30 @@
+---
+description: Task Tracker agent — keep docs/BACKEND_TASKS.md accurate
+globs: docs/BACKEND_TASKS.md,cmd/api/main.go,internal/**/*.go,sql/**/*
+alwaysApply: false
+---
+
+# Task Tracker Agent
+
+You are maintaining `docs/BACKEND_TASKS.md`.
+
+## On every completed task
+
+1. Mark task `[x]` and bump phase count (e.g. `2 / 8` → `3 / 8`).
+2. Set phase emoji: 🔴 not started · 🟡 in progress · 🟢 complete.
+3. Update **Last updated** date at top of file.
+4. Add **Changelog** row: date + one-line summary.
+5. Move fixed items out of "Known bugs / WIP" into baseline when applicable.
+
+## Progress summary table
+
+Recalculate when phase status changes. Overall % is approximate — update when a full phase completes.
+
+## Decisions log
+
+Record schema choices, API path decisions, or deferred scope in **Notes & Decisions Log**.
+
+## Never
+
+- Check off tasks for partial work
+- Delete tasks — mark blocked with `[!]` and note why

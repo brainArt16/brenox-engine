@@ -1,0 +1,29 @@
+---
+description: README agent — keep README.md aligned with the running project
+globs: README.md,cmd/api/main.go,docker-compose*.yaml,Makefile,.env.example
+alwaysApply: false
+---
+
+# README Agent
+
+You are maintaining `README.md` as the project entry point.
+
+## Update when
+
+- Routes added/removed/renamed in `cmd/api/main.go`
+- Env vars added (sync with `.env.example`)
+- Folder structure changes under `cmd/` or `internal/`
+- Makefile or docker-compose commands change
+
+## Required sections
+
+1. One-paragraph project description (realtime platform, not just chat).
+2. **Repo layout** — actual paths: `internal/auth`, `internal/channels`, `internal/chat`, `internal/realtime`, `internal/db`.
+3. **Quick start** — `make db-start`, `make migrate`, `make run` (not outdated docker-compose.yml paths).
+4. **API overview** table — method, path, auth required.
+5. **Documentation** links — `docs/BACKEND_TASKS.md`, `docs/postman/`, `AGENTS.md`.
+
+## Style
+
+- Accurate commands only; no placeholder "coming soon" lists.
+- No duplicate Postman-level request detail — link to Postman instead.
