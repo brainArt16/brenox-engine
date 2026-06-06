@@ -15,6 +15,8 @@ import (
 
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/database"
+	"github.com/brainart16/brenox/internal/health"
+	redisutil "github.com/brainart16/brenox/internal/redis"
 
 	authHandler "github.com/brainart16/brenox/internal/auth"
 	"github.com/brainart16/brenox/internal/authz"
@@ -38,12 +40,20 @@ func main() {
 		log.Fatal(err)
 	}
 
+	redisClient, err := redisutil.NewClient()
+	if err != nil {
+		slog.Warn("redis unavailable, running in local-only realtime mode", "error", err)
+	}
+
 	queries := db.New(pool)
 	authzService := authz.NewService(queries)
 	wsConfig := realtimeHandler.LoadConfig()
 
 	hub := realtimeHandler.NewHub(wsConfig)
+	broker := realtimeHandler.NewBroker(redisClient, hub)
+	hub.SetBroker(broker)
 	go hub.Run()
+	broker.Start()
 
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
@@ -58,8 +68,11 @@ func main() {
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, wsConfig)
+	healthHandler := health.NewHandler(pool, redisClient)
 
 	router := gin.Default()
+
+	router.GET("/health", healthHandler.Check)
 
 	authRouter := router.Group("/auth")
 	authRouter.POST("/register", authHandlerInstance.Register)
@@ -87,8 +100,13 @@ func main() {
 	api.GET("/ws", wsHandler.HandleWebSocket)
 	api.GET("/presence", wsHandler.GetPresence)
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: router,
 	}
 
@@ -104,6 +122,7 @@ func main() {
 	<-quit
 
 	slog.Info("shutting down server")
+	broker.Close()
 	hub.Shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

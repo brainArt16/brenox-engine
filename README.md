@@ -11,6 +11,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [AGENTS.md](AGENTS.md) | Agent roles for doc sync (task tracker, README, Postman) |
 | [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
 
 ## Repo layout
 
@@ -22,7 +23,9 @@ internal/
   workspaces/         Workspace CRUD + member admin
   channels/           Channel CRUD (workspace-scoped)
   chat/               Message persistence
-  realtime/           WebSocket hub and handlers
+  realtime/           WebSocket hub, Redis broker
+  redis/              Redis client wrapper
+  health/             Health check handler
   db/                 sqlc-generated queries
   database/           Postgres pool
   middleware/         JWT auth middleware
@@ -39,7 +42,7 @@ docs/
 
 Prerequisites: Go 1.20+, Docker, Make.
 
-1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, and optional WebSocket vars (`WS_ALLOWED_ORIGINS`, `WS_MAX_CONNECTIONS_PER_USER`, `WS_MAX_CONNECTIONS_PER_IP`).
+1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, `REDIS_URL`, and optional WebSocket vars.
 
 2. Start database and run migrations:
 
@@ -55,7 +58,7 @@ make run
 make test   # authz unit tests
 ```
 
-Server listens on `:8080`.
+Server listens on `:8080` (override with `PORT`). Set `REDIS_URL` for cross-instance realtime; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ### Existing databases
 
@@ -72,6 +75,7 @@ All channel and message routes are scoped under a workspace.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
+| GET | `/health` | No | DB + Redis health probe |
 | POST | `/auth/register` | No | Create account |
 | POST | `/auth/login` | No | Login, returns JWT |
 | POST | `/api/workspaces` | JWT | Create workspace |

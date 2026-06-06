@@ -14,6 +14,7 @@ const (
 type Hub struct {
 	mu sync.RWMutex
 	cfg Config
+	broker EventBroker
 
 	channels map[int64]map[*Client]bool
 
@@ -41,6 +42,11 @@ func NewHub(cfg Config) *Hub {
 	}
 }
 
+// SetBroker attaches the cross-node event broker (Redis or local-only).
+func (h *Hub) SetBroker(broker EventBroker) {
+	h.broker = broker
+}
+
 func (h *Hub) CanConnect(userID int64, remoteIP string) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -54,12 +60,25 @@ func (h *Hub) CanConnect(userID int64, remoteIP string) bool {
 	return true
 }
 
-// Publish queues an outbound event without blocking the hub loop.
+// Publish sends an outbound event to all nodes via the broker.
 func (h *Hub) Publish(event Event) {
 	if event.EventID == "" {
 		event = NewOutboundEvent(event.Type, event.WorkspaceID, event.ChannelID, event.Payload)
 	}
 
+	if h.broker != nil {
+		h.broker.Publish(event)
+		return
+	}
+
+	h.enqueueBroadcast(event)
+}
+
+func (h *Hub) deliverLocal(event Event) {
+	h.enqueueBroadcast(event)
+}
+
+func (h *Hub) enqueueBroadcast(event Event) {
 	go func() {
 		select {
 		case h.broadcast <- event:
@@ -93,6 +112,7 @@ func (h *Hub) handleRegister(client *Client) {
 	if h.channels[client.channelID] == nil {
 		h.channels[client.channelID] = make(map[*Client]bool)
 	}
+	firstOnChannel := len(h.channels[client.channelID]) == 0
 	h.channels[client.channelID][client] = true
 
 	h.onlineUsers[client.userID]++
@@ -100,6 +120,10 @@ func (h *Hub) handleRegister(client *Client) {
 	h.ipConnections[client.remoteIP]++
 	firstConnection := h.onlineUsers[client.userID] == 1
 	h.mu.Unlock()
+
+	if firstOnChannel && h.broker != nil {
+		h.broker.EnsureSubscribed(client.workspaceID, client.channelID)
+	}
 
 	slog.Info("websocket connected",
 		"user_id", client.userID,
@@ -124,6 +148,7 @@ func (h *Hub) handleUnregister(client *Client) {
 	}
 
 	delete(h.channels[client.channelID], client)
+	lastOnChannel := len(h.channels[client.channelID]) == 0
 
 	h.onlineUsers[client.userID]--
 	h.userConnections[client.userID]--
@@ -139,6 +164,10 @@ func (h *Hub) handleUnregister(client *Client) {
 		delete(h.ipConnections, client.remoteIP)
 	}
 	h.mu.Unlock()
+
+	if lastOnChannel && h.broker != nil {
+		h.broker.MaybeUnsubscribe(client.workspaceID, client.channelID)
+	}
 
 	close(client.send)
 
@@ -194,7 +223,9 @@ func (h *Hub) Shutdown() {
 	for channelID, clients := range h.channels {
 		for client := range clients {
 			close(client.send)
-			_ = client.conn.Close()
+			if client.conn != nil {
+				_ = client.conn.Close()
+			}
 			delete(clients, client)
 		}
 		delete(h.channels, channelID)

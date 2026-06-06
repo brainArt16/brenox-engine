@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 5 complete)
+> **Last updated:** 2026-06-06 (Phase 6 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -34,7 +34,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 3 | Workspace Architecture | 🟢 Complete | 14 / 14 |
 | 4 | Permissions System | 🟢 Complete | 12 / 12 |
 | 5 | Realtime Hardening | 🟢 Complete | 10 / 10 |
-| 6 | Redis & Horizontal Scale | 🔴 Not started | 0 / 10 |
+| 6 | Redis & Horizontal Scale | 🟢 Complete | 10 / 10 |
 | 7 | Presence (Production) | 🔴 Not started | 0 / 8 |
 | 8 | Notifications | 🔴 Not started | 0 / 10 |
 | 9 | File Attachments | 🔴 Not started | 0 / 10 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~43% (Phases 0–5 complete)
+**Overall backend completion:** ~50% (Phases 0–6 complete)
 
 ---
 
@@ -272,16 +272,16 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 6.1 | Add Redis to `docker-compose.dev.yaml` | [ ] |
-| 6.2 | Redis client package / config (`REDIS_URL`) | [ ] |
-| 6.3 | Publish all outbound realtime events to Redis channel(s) | [ ] |
-| 6.4 | Subscribe on each node; forward to local hub | [ ] |
-| 6.5 | Channel-scoped Redis topics: `workspace:{id}:channel:{id}` | [ ] |
-| 6.6 | Handle Redis reconnect / resubscribe | [ ] |
-| 6.7 | Integration test with 2 app instances + Redis | [ ] |
-| 6.8 | Document deployment topology in `docs/DEPLOYMENT.md` | [ ] |
-| 6.9 | Health check endpoint: `GET /health` (DB + Redis) | [ ] |
-| 6.10 | Sticky sessions vs shared state — document WS load balancer config | [ ] |
+| 6.1 | Add Redis to `docker-compose.dev.yaml` | [x] |
+| 6.2 | Redis client package / config (`REDIS_URL`) | [x] |
+| 6.3 | Publish all outbound realtime events to Redis channel(s) | [x] |
+| 6.4 | Subscribe on each node; forward to local hub | [x] |
+| 6.5 | Channel-scoped Redis topics: `workspace:{id}:channel:{id}` | [x] |
+| 6.6 | Handle Redis reconnect / resubscribe | [x] |
+| 6.7 | Integration test with 2 app instances + Redis | [x] |
+| 6.8 | Document deployment topology in `docs/DEPLOYMENT.md` | [x] |
+| 6.9 | Health check endpoint: `GET /health` (DB + Redis) | [x] |
+| 6.10 | Sticky sessions vs shared state — document WS load balancer config | [x] |
 
 ---
 

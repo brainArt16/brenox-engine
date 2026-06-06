@@ -13,6 +13,19 @@
   ],
   "item": [
     {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "description": "Returns database and Redis status. No auth required."
+          }
+        }
+      ]
+    },
+    {
       "name": "Auth",
       "item": [
         {

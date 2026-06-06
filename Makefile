@@ -1,4 +1,4 @@
-.PHONY: migration migrate run db-start sqlc build
+.PHONY: migration migrate run db-start sqlc build test test-integration
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -30,3 +30,6 @@ build:
 
 test:
 	go test ./...
+
+test-integration:
+	REDIS_URL=redis://localhost:6379/0 go test ./internal/realtime/ -run TestRedisBrokerCrossInstance -count=1
