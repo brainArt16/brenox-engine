@@ -1,14 +1,25 @@
-# WebRTC Voice Calling
+# WebRTC Calling
 
-Brenox provides **signaling only** — audio media flows peer-to-peer (or via TURN). The backend never handles RTP/media.
+Brenox provides **signaling only** — audio and video media flows peer-to-peer (or via TURN). The backend never handles RTP/media.
+
+SDK integration guide: [WEBRTC_CLIENT.md](WEBRTC_CLIENT.md).
 
 ## Flow
 
-1. **Initiate** — `POST /api/workspaces/:workspace_id/channels/:id/calls`
+1. **Initiate** — `POST /api/workspaces/:workspace_id/channels/:id/calls` (optional `{"mode":"video"}`)
 2. **Join** — `POST /api/calls/:id/join` (channel members only)
-3. **Signaling** — WebSocket events on the channel connection (`call.offer`, `call.answer`, `call.ice`)
+3. **Signaling** — WebSocket events on the channel connection
 4. **Leave** — `POST /api/calls/:id/leave`
 5. **End** — automatic when last participant leaves; broadcasts `call.end`
+
+## Call modes
+
+| Mode | Description |
+|------|-------------|
+| `voice` | Audio-only (default) |
+| `video` | Video expected; clients attach camera tracks on join |
+
+Mode is set at initiation and returned in REST responses and `call.join` payloads.
 
 ## Call states
 
@@ -62,6 +73,37 @@ Send on the channel WebSocket (`?workspace_id=&channel_id=`). Must be an active 
 
 The server adds `from_user_id` and relays via Redis to all channel subscribers. When `to_user_id` is set, only that user receives the event.
 
+**Media / state events** (broadcast to channel; server adds `from_user_id`):
+
+| Event | Purpose |
+|-------|---------|
+| `call.video.on` / `call.video.off` | Camera toggled |
+| `call.screen.start` / `call.screen.stop` | Screen share |
+| `call.speaker.changed` | Active speaker hint |
+| `call.recording.start` / `call.recording.stop` | Recording metadata (persisted) |
+| `call.preferences` | Optional codec/bandwidth hints |
+
+Example — video on:
+```json
+{
+  "type": "call.video.on",
+  "payload": {
+    "call_id": 1
+  }
+}
+```
+
+Example — recording start (server adds `recording_id`):
+```json
+{
+  "type": "call.recording.start",
+  "payload": {
+    "call_id": 1,
+    "label": "standup"
+  }
+}
+```
+
 ### Server → Client
 
 **`call.join`** / **`call.leave`** / **`call.end`**
@@ -73,10 +115,17 @@ The server adds `from_user_id` and relays via Redis to all channel subscribers. 
   "payload": {
     "call_id": 1,
     "user_id": 2,
-    "status": "active"
+    "status": "active",
+    "mode": "video"
   }
 }
 ```
+
+## Limits
+
+| Setting | Env var | Default |
+|---------|---------|---------|
+| Max participants per call | `CALL_MAX_PARTICIPANTS` | 25 |
 
 ## TURN / STUN (client-side)
 

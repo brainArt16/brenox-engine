@@ -413,8 +413,45 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"voice\"\n}"
+            },
             "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/calls",
-            "description": "Creates a ringing call in the channel. One active call per channel. Notifies other channel members (call_invite). Signaling via WebSocket: call.offer, call.answer, call.ice."
+            "description": "Creates a ringing call in the channel. mode: voice (default) or video. One active call per channel. Notifies other channel members (call_invite)."
+          }
+        },
+        {
+          "name": "Initiate Video Call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('callId', json.id);",
+                  "  pm.environment.set('callId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mode\": \"video\"\n}"
+            },
+            "url": "{{baseUrl}}/api/workspaces/{{workspaceId}}/channels/{{channelId}}/calls",
+            "description": "Initiate a video call. Signaling: call.offer/answer/ice plus call.video.on/off, call.screen.*, call.recording.*"
           }
         },
         {

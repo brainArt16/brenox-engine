@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS call_recordings;
+
+ALTER TABLE calls DROP COLUMN IF EXISTS mode;

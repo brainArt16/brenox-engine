@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 10 complete)
+> **Last updated:** 2026-06-06 (Phase 11 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -39,14 +39,14 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 8 | Notifications | 🟢 Complete | 10 / 10 |
 | 9 | File Attachments | 🟢 Complete | 10 / 10 |
 | 10 | WebRTC — Voice | 🟢 Complete | 12 / 12 |
-| 11 | WebRTC — Video | 🔴 Not started | 0 / 8 |
+| 11 | WebRTC — Video | 🟢 Complete | 8 / 8 |
 | 12 | Public Developer API | 🔴 Not started | 0 / 12 |
 | 13 | SDK Support Layer | 🔴 Not started | 0 / 8 |
 | 14 | Production Readiness | 🔴 Not started | 0 / 18 |
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~71% (Phases 0–10 complete)
+**Overall backend completion:** ~76% (Phases 0–11 complete)
 
 ---
 
@@ -377,14 +377,14 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 11.1 | Extend call model for video vs voice mode | [ ] |
-| 11.2 | WebSocket events: `call.video.on`, `call.video.off` | [ ] |
-| 11.3 | WebSocket events: `call.screen.start`, `call.screen.stop` | [ ] |
-| 11.4 | Active speaker event: `call.speaker.changed` (optional) | [ ] |
-| 11.5 | Recording metadata table + start/stop signaling (not media storage) | [ ] |
-| 11.6 | Max participants per call config | [ ] |
-| 11.7 | Bandwidth/codec preferences in signaling (optional) | [ ] |
-| 11.8 | Document client-side WebRTC requirements for SDK team | [ ] |
+| 11.1 | Extend call model for video vs voice mode | [x] |
+| 11.2 | WebSocket events: `call.video.on`, `call.video.off` | [x] |
+| 11.3 | WebSocket events: `call.screen.start`, `call.screen.stop` | [x] |
+| 11.4 | Active speaker event: `call.speaker.changed` (optional) | [x] |
+| 11.5 | Recording metadata table + start/stop signaling (not media storage) | [x] |
+| 11.6 | Max participants per call config | [x] |
+| 11.7 | Bandwidth/codec preferences in signaling (optional) | [x] |
+| 11.8 | Document client-side WebRTC requirements for SDK team | [x] |
 
 ---
 

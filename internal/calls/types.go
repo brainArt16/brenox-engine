@@ -6,6 +6,9 @@ const (
 	StatusRinging = "ringing"
 	StatusActive  = "active"
 	StatusEnded   = "ended"
+
+	ModeVoice = "voice"
+	ModeVideo = "video"
 )
 
 var (
@@ -14,7 +17,11 @@ var (
 	ErrNotParticipant    = errors.New("not a call participant")
 	ErrCallEnded         = errors.New("call has ended")
 	ErrCallAlreadyActive = errors.New("channel already has an active call")
+	ErrCallFull          = errors.New("call participant limit reached")
 	ErrChannelNotFound   = errors.New("channel not found")
+	ErrRecordingActive   = errors.New("call already has an active recording")
+	ErrRecordingNotFound = errors.New("no active recording for call")
+	ErrInvalidMode       = errors.New("invalid call mode")
 )
 
 type CallResponse struct {
@@ -23,8 +30,21 @@ type CallResponse struct {
 	WorkspaceID int64  `json:"workspace_id"`
 	InitiatorID int64  `json:"initiator_id"`
 	Status      string `json:"status"`
+	Mode        string `json:"mode"`
 	CreatedAt   string `json:"created_at"`
 	EndedAt     string `json:"ended_at,omitempty"`
+}
+
+type InitiateCallRequest struct {
+	Mode string `json:"mode"`
+}
+
+type RecordingResponse struct {
+	ID        int64  `json:"id"`
+	CallID    int64  `json:"call_id"`
+	StartedBy int64  `json:"started_by"`
+	StartedAt string `json:"started_at"`
+	EndedAt   string `json:"ended_at,omitempty"`
 }
 
 type ParticipantResponse struct {
@@ -37,4 +57,5 @@ type SignalContext struct {
 	WorkspaceID int64
 	ChannelID   int64
 	UserID      int64
+	Mode        string
 }

@@ -107,6 +107,7 @@ func main() {
 		realtimeHandler.NewCallBroadcaster(hub),
 		notificationService,
 		channelsService,
+		callsHandler.LoadConfig(),
 	)
 	callsHandlerInstance := callsHandler.NewHandler(callsService)
 

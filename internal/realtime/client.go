@@ -54,6 +54,12 @@ func (c *Client) readPump() {
 			c.broadcastTyping("typing.stop")
 		case "call.offer", "call.answer", "call.ice":
 			c.handleCallSignal(event)
+		case "call.video.on", "call.video.off",
+			"call.screen.start", "call.screen.stop",
+			"call.speaker.changed",
+			"call.recording.start", "call.recording.stop",
+			"call.preferences":
+			c.handleCallMediaEvent(event)
 		default:
 			slog.Info("ignored websocket event", "type", event.Type, "user_id", c.userID)
 		}
@@ -127,6 +133,76 @@ func (c *Client) handleCallSignal(event Event) {
 
 	payload := withFromUser(event.Payload, c.userID)
 	c.hub.Publish(NewOutboundEvent(event.Type, c.workspaceID, c.channelID, payload))
+}
+
+func (c *Client) handleCallMediaEvent(event Event) {
+	if c.calls == nil {
+		c.sendClientError("calls unavailable")
+		return
+	}
+
+	callID := payloadInt64(event.Payload, "call_id")
+	if callID == 0 {
+		c.sendClientError("invalid call media payload")
+		return
+	}
+
+	ctx, err := c.calls.ValidateSignal(context.Background(), callID, c.userID)
+	if err != nil {
+		c.sendClientError(err.Error())
+		return
+	}
+
+	if ctx.ChannelID != c.channelID || ctx.WorkspaceID != c.workspaceID {
+		c.sendClientError("call channel mismatch")
+		return
+	}
+
+	payload := withFromUser(event.Payload, c.userID)
+
+	switch event.Type {
+	case "call.recording.start":
+		metadata, _ := payloadMap(event.Payload)
+		recording, err := c.calls.StartRecording(context.Background(), callID, c.userID, metadata)
+		if err != nil {
+			c.sendClientError(err.Error())
+			return
+		}
+		payload["recording_id"] = recording.ID
+		payload["started_at"] = recording.StartedAt
+	case "call.recording.stop":
+		recordingID := payloadInt64(event.Payload, "recording_id")
+		if recordingID == 0 {
+			c.sendClientError("recording_id required")
+			return
+		}
+		recording, err := c.calls.StopRecording(context.Background(), callID, c.userID, recordingID)
+		if err != nil {
+			c.sendClientError(err.Error())
+			return
+		}
+		payload["recording_id"] = recording.ID
+		payload["ended_at"] = recording.EndedAt
+	}
+
+	c.hub.Publish(NewOutboundEvent(event.Type, c.workspaceID, c.channelID, payload))
+}
+
+func payloadMap(payload any) (map[string]any, bool) {
+	payloadMap, ok := payload.(map[string]any)
+	if !ok {
+		return map[string]any{}, false
+	}
+	cloned := make(map[string]any, len(payloadMap))
+	for key, value := range payloadMap {
+		switch key {
+		case "call_id", "recording_id", "to_user_id":
+			continue
+		default:
+			cloned[key] = value
+		}
+	}
+	return cloned, true
 }
 
 func (c *Client) broadcastTyping(eventType string) {

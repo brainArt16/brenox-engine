@@ -27,7 +27,11 @@ func (h *Handler) InitiateCall(c *gin.Context) {
 	}
 
 	userID := c.MustGet("user_id").(int64)
-	call, err := h.service.InitiateCall(c.Request.Context(), workspaceID, channelID, userID)
+
+	var req InitiateCallRequest
+	_ = c.ShouldBindJSON(&req)
+
+	call, err := h.service.InitiateCall(c.Request.Context(), workspaceID, channelID, userID, req.Mode)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -103,6 +107,10 @@ func writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 	case errors.Is(err, ErrCallAlreadyActive):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, ErrCallFull), errors.Is(err, ErrRecordingActive):
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+	case errors.Is(err, ErrInvalidMode):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 	}

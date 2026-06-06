@@ -27,6 +27,7 @@ type Call struct {
 	Status      string
 	CreatedAt   pgtype.Timestamptz
 	EndedAt     pgtype.Timestamptz
+	Mode        string
 }
 
 type CallParticipant struct {
@@ -35,6 +36,15 @@ type CallParticipant struct {
 	UserID   int64
 	JoinedAt pgtype.Timestamptz
 	LeftAt   pgtype.Timestamptz
+}
+
+type CallRecording struct {
+	ID        int64
+	CallID    int64
+	StartedBy int64
+	StartedAt pgtype.Timestamptz
+	EndedAt   pgtype.Timestamptz
+	Metadata  []byte
 }
 
 type Channel struct {

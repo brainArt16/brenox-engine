@@ -10,7 +10,8 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/postman/](docs/postman/) | Postman collection for HTTP API |
 | [AGENTS.md](AGENTS.md) | Agent roles for doc sync (task tracker, README, Postman) |
 | [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
-| [docs/WEBRTC.md](docs/WEBRTC.md) | Voice call signaling + TURN/STUN client config |
+| [docs/WEBRTC.md](docs/WEBRTC.md) | Voice/video call signaling + TURN/STUN client config |
+| [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md) | SDK integration guide for WebRTC clients |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
 
@@ -105,14 +106,14 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/presence` | JWT | Globally online users (status, last_seen) |
 | GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
 | PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |
-| POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate voice call in channel |
+| POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |
 | GET | `/api/ws?workspace_id=&channel_id=` | JWT (header or `?token=`) | WebSocket upgrade |
 
 WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Graceful shutdown closes active WebSocket connections on SIGTERM.
 
-Voice call signaling (`call.offer`, `call.answer`, `call.ice`) is sent over the channel WebSocket. See [docs/WEBRTC.md](docs/WEBRTC.md).
+Voice and video call signaling (`call.offer`, `call.answer`, `call.ice`, `call.video.*`, etc.) is sent over the channel WebSocket. See [docs/WEBRTC.md](docs/WEBRTC.md) and [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md).
 
 Channel names are unique **per workspace**.
 

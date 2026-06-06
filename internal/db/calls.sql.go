@@ -58,15 +58,17 @@ INSERT INTO calls (
     channel_id,
     workspace_id,
     initiator_id,
-    status
+    status,
+    mode
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
-RETURNING id, channel_id, workspace_id, initiator_id, status, created_at, ended_at
+RETURNING id, channel_id, workspace_id, initiator_id, status, created_at, ended_at, mode
 `
 
 type CreateCallParams struct {
@@ -74,6 +76,7 @@ type CreateCallParams struct {
 	WorkspaceID int64
 	InitiatorID int64
 	Status      string
+	Mode        string
 }
 
 func (q *Queries) CreateCall(ctx context.Context, arg CreateCallParams) (Call, error) {
@@ -82,6 +85,7 @@ func (q *Queries) CreateCall(ctx context.Context, arg CreateCallParams) (Call, e
 		arg.WorkspaceID,
 		arg.InitiatorID,
 		arg.Status,
+		arg.Mode,
 	)
 	var i Call
 	err := row.Scan(
@@ -92,12 +96,75 @@ func (q *Queries) CreateCall(ctx context.Context, arg CreateCallParams) (Call, e
 		&i.Status,
 		&i.CreatedAt,
 		&i.EndedAt,
+		&i.Mode,
+	)
+	return i, err
+}
+
+const createCallRecording = `-- name: CreateCallRecording :one
+INSERT INTO call_recordings (
+    call_id,
+    started_by,
+    metadata
+)
+VALUES (
+    $1,
+    $2,
+    $3
+)
+RETURNING id, call_id, started_by, started_at, ended_at, metadata
+`
+
+type CreateCallRecordingParams struct {
+	CallID    int64
+	StartedBy int64
+	Metadata  []byte
+}
+
+func (q *Queries) CreateCallRecording(ctx context.Context, arg CreateCallRecordingParams) (CallRecording, error) {
+	row := q.db.QueryRow(ctx, createCallRecording, arg.CallID, arg.StartedBy, arg.Metadata)
+	var i CallRecording
+	err := row.Scan(
+		&i.ID,
+		&i.CallID,
+		&i.StartedBy,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.Metadata,
+	)
+	return i, err
+}
+
+const endCallRecording = `-- name: EndCallRecording :one
+UPDATE call_recordings
+SET ended_at = NOW()
+WHERE id = $1
+  AND call_id = $2
+  AND ended_at IS NULL
+RETURNING id, call_id, started_by, started_at, ended_at, metadata
+`
+
+type EndCallRecordingParams struct {
+	ID     int64
+	CallID int64
+}
+
+func (q *Queries) EndCallRecording(ctx context.Context, arg EndCallRecordingParams) (CallRecording, error) {
+	row := q.db.QueryRow(ctx, endCallRecording, arg.ID, arg.CallID)
+	var i CallRecording
+	err := row.Scan(
+		&i.ID,
+		&i.CallID,
+		&i.StartedBy,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.Metadata,
 	)
 	return i, err
 }
 
 const getActiveCallByChannel = `-- name: GetActiveCallByChannel :one
-SELECT id, channel_id, workspace_id, initiator_id, status, created_at, ended_at
+SELECT id, channel_id, workspace_id, initiator_id, status, created_at, ended_at, mode
 FROM calls
 WHERE channel_id = $1
   AND status IN ('ringing', 'active')
@@ -116,6 +183,7 @@ func (q *Queries) GetActiveCallByChannel(ctx context.Context, channelID int64) (
 		&i.Status,
 		&i.CreatedAt,
 		&i.EndedAt,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -146,8 +214,31 @@ func (q *Queries) GetActiveCallParticipant(ctx context.Context, arg GetActiveCal
 	return i, err
 }
 
+const getActiveCallRecording = `-- name: GetActiveCallRecording :one
+SELECT id, call_id, started_by, started_at, ended_at, metadata
+FROM call_recordings
+WHERE call_id = $1
+  AND ended_at IS NULL
+ORDER BY started_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetActiveCallRecording(ctx context.Context, callID int64) (CallRecording, error) {
+	row := q.db.QueryRow(ctx, getActiveCallRecording, callID)
+	var i CallRecording
+	err := row.Scan(
+		&i.ID,
+		&i.CallID,
+		&i.StartedBy,
+		&i.StartedAt,
+		&i.EndedAt,
+		&i.Metadata,
+	)
+	return i, err
+}
+
 const getCallByID = `-- name: GetCallByID :one
-SELECT id, channel_id, workspace_id, initiator_id, status, created_at, ended_at
+SELECT id, channel_id, workspace_id, initiator_id, status, created_at, ended_at, mode
 FROM calls
 WHERE id = $1
 `
@@ -163,6 +254,7 @@ func (q *Queries) GetCallByID(ctx context.Context, id int64) (Call, error) {
 		&i.Status,
 		&i.CreatedAt,
 		&i.EndedAt,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -259,7 +351,7 @@ UPDATE calls
 SET status = $2,
     ended_at = CASE WHEN $2 = 'ended' THEN NOW() ELSE ended_at END
 WHERE id = $1
-RETURNING id, channel_id, workspace_id, initiator_id, status, created_at, ended_at
+RETURNING id, channel_id, workspace_id, initiator_id, status, created_at, ended_at, mode
 `
 
 type UpdateCallStatusParams struct {
@@ -278,6 +370,7 @@ func (q *Queries) UpdateCallStatus(ctx context.Context, arg UpdateCallStatusPara
 		&i.Status,
 		&i.CreatedAt,
 		&i.EndedAt,
+		&i.Mode,
 	)
 	return i, err
 }

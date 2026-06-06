@@ -92,6 +92,38 @@ WebRTC signaling for voice calls. Requires an active call participant. Relayed t
 
 The server adds `from_user_id` to the relayed payload.
 
+### `call.video.on` / `call.video.off` / `call.screen.start` / `call.screen.stop` / `call.speaker.changed` / `call.preferences`
+
+Media and UI state events. Broadcast to channel members. Requires active call participation.
+
+```json
+{ "type": "call.video.on", "payload": { "call_id": 1 } }
+```
+
+```json
+{
+  "type": "call.preferences",
+  "payload": {
+    "call_id": 1,
+    "to_user_id": 2,
+    "video_codec": "VP9",
+    "max_bitrate_kbps": 1500
+  }
+}
+```
+
+### `call.recording.start` / `call.recording.stop`
+
+Recording metadata (no media storage). Server persists start/stop and adds `recording_id` to the broadcast.
+
+```json
+{ "type": "call.recording.start", "payload": { "call_id": 1, "label": "standup" } }
+```
+
+```json
+{ "type": "call.recording.stop", "payload": { "call_id": 1, "recording_id": 5 } }
+```
+
 ## Server → Client
 
 ### `message.new`
@@ -239,12 +271,13 @@ Call lifecycle events broadcast to channel members. Triggered by REST join/leave
   "payload": {
     "call_id": 1,
     "user_id": 2,
-    "status": "active"
+    "status": "active",
+    "mode": "video"
   }
 }
 ```
 
-Signaling relays (`call.offer`, `call.answer`, `call.ice`) include `from_user_id` in the payload. Full flow: [WEBRTC.md](WEBRTC.md).
+Relayed media events (`call.video.*`, `call.screen.*`, `call.speaker.changed`, `call.recording.*`, `call.preferences`) include `from_user_id`. Full flow: [WEBRTC.md](WEBRTC.md), [WEBRTC_CLIENT.md](WEBRTC_CLIENT.md).
 
 ### `error`
 

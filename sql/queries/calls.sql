@@ -3,13 +3,15 @@ INSERT INTO calls (
     channel_id,
     workspace_id,
     initiator_id,
-    status
+    status,
+    mode
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
 RETURNING *;
 
@@ -76,3 +78,32 @@ RETURNING *;
 SELECT user_id
 FROM channel_members
 WHERE channel_id = $1;
+
+-- name: CreateCallRecording :one
+INSERT INTO call_recordings (
+    call_id,
+    started_by,
+    metadata
+)
+VALUES (
+    $1,
+    $2,
+    $3
+)
+RETURNING *;
+
+-- name: GetActiveCallRecording :one
+SELECT *
+FROM call_recordings
+WHERE call_id = $1
+  AND ended_at IS NULL
+ORDER BY started_at DESC
+LIMIT 1;
+
+-- name: EndCallRecording :one
+UPDATE call_recordings
+SET ended_at = NOW()
+WHERE id = $1
+  AND call_id = $2
+  AND ended_at IS NULL
+RETURNING *;
