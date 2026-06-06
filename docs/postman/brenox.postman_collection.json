@@ -93,6 +93,49 @@
       ]
     },
     {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"hello from Postman\"\n}"
+            },
+            "url": "{{baseUrl}}/api/channels/{{channelId}}/messages",
+            "description": "Send a message to a channel. Requires channel membership."
+          }
+        },
+        {
+          "name": "List Messages",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/channels/{{channelId}}/messages?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "channels", "{{channelId}}", "messages"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "offset", "value": "0" }
+              ]
+            },
+            "description": "Paginated message history for a channel."
+          }
+        }
+      ]
+    },
+    {
       "name": "Presence",
       "item": [
         {
@@ -126,7 +169,7 @@
               "path": ["api", "ws"],
               "query": [{ "key": "channel_id", "value": "{{channelId}}" }]
             },
-            "description": "Upgrade to WebSocket. Use Postman WebSocket tab or a WS client.\n\nSend JSON events:\n```json\n{ \"type\": \"message.send\", \"channel_id\": 1, \"payload\": { \"content\": \"hello\" } }\n```"
+            "description": "Upgrade to WebSocket. Requires channel membership.\n\nSend:\n```json\n{ \"type\": \"message.send\", \"payload\": { \"content\": \"hello\" } }\n```\n\nReceive `message.new` events. See docs/WEBSOCKET_EVENTS.md."
           }
         }
       ]

@@ -66,3 +66,15 @@ func (s *Service) GetChannels(
 		userID,
 	)
 }
+
+// IsMember reports whether userID belongs to channelID.
+func (s *Service) IsMember(
+	ctx context.Context,
+	channelID int64,
+	userID int64,
+) (bool, error) {
+	return s.queries.IsChannelMember(ctx, db.IsChannelMemberParams{
+		ChannelID: channelID,
+		UserID:    userID,
+	})
+}

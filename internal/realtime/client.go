@@ -1,9 +1,12 @@
 package realtime
 
 import (
+	"context"
+	"errors"
 	"log"
 	"time"
 
+	"github.com/brainart16/brenox/internal/chat"
 	"github.com/gorilla/websocket"
 )
 
@@ -20,6 +23,8 @@ type Client struct {
 
 	// Reference to the hub.
 	hub *Hub
+
+	chat *chat.Service
 
 	// outgoing message queue: This is Go channel
 	send chan Event
@@ -150,24 +155,77 @@ func (c *Client) readPump() {
 		)
 
 		if err != nil {
-
 			log.Println(err)
-
 			break
 		}
 
-		// Ensure the event has the correct channel ID before broadcasting.
 		event.ChannelID = c.channelID
 
-		// Attach authenticated sender
-		if payloadMap, ok := event.Payload.(map[string]any); ok {
-			payloadMap["sender_id"] = c.userID
-			event.Payload = payloadMap
+		switch event.Type {
+		case "message.send":
+			c.handleMessageSend(event)
+		default:
+			// Ignore unknown inbound event types from clients.
+			log.Printf("ignored websocket event type: %s", event.Type)
 		}
-
-		// Broadcast to hub.
-		c.hub.broadcast <- event
 	}
+}
+
+func (c *Client) handleMessageSend(event Event) {
+	content, ok := parseMessageContent(event.Payload)
+	if !ok {
+		c.sendClientError("invalid message payload")
+		return
+	}
+
+	message, err := c.chat.SendMessage(
+		context.Background(),
+		c.channelID,
+		c.userID,
+		content,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, chat.ErrNotMember):
+			c.sendClientError("not a channel member")
+		case errors.Is(err, chat.ErrEmptyContent), errors.Is(err, chat.ErrMessageTooLong):
+			c.sendClientError(err.Error())
+		default:
+			log.Printf("message.send failed: %v", err)
+			c.sendClientError("failed to send message")
+		}
+		return
+	}
+
+	c.hub.broadcast <- Event{
+		Type:      "message.new",
+		ChannelID: c.channelID,
+		Payload:   chat.MessageNewPayload(*message),
+	}
+}
+
+func (c *Client) sendClientError(message string) {
+	c.send <- Event{
+		Type:      "error",
+		ChannelID: c.channelID,
+		Payload: map[string]any{
+			"message": message,
+		},
+	}
+}
+
+func parseMessageContent(payload any) (string, bool) {
+	payloadMap, ok := payload.(map[string]any)
+	if !ok {
+		return "", false
+	}
+
+	content, ok := payloadMap["content"].(string)
+	if !ok {
+		return "", false
+	}
+
+	return content, true
 }
 
 

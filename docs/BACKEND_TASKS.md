@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 0 complete)
+> **Last updated:** 2026-06-06 (Phase 1 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -29,7 +29,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | Phase | Name | Status | Progress |
 |-------|------|--------|----------|
 | 0 | Stabilize & Unblock | 🟢 Complete | 8 / 8 |
-| 1 | Messaging APIs | 🔴 Not started | 0 / 12 |
+| 1 | Messaging APIs | 🟢 Complete | 12 / 12 |
 | 2 | Channel Join / Leave | 🔴 Not started | 0 / 8 |
 | 3 | Workspace Architecture | 🔴 Not started | 0 / 14 |
 | 4 | Permissions System | 🔴 Not started | 0 / 12 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~10% (Phase 0 complete)
+**Overall backend completion:** ~15% (Phases 0–1 complete)
 
 ---
 
@@ -76,18 +76,17 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 - [x] List user channels — `GET /api/channels`
 - [x] WebSocket hub — `GET /api/ws?channel_id=` (in-memory, single node)
 - [x] WebSocket event model (`internal/realtime/message.go`)
-- [x] `chat.Service.SaveMessage` (exists but **not wired**)
-- [x] sqlc `GetChannelMessages` query (exists but **no HTTP route**)
-- [x] Docker Compose for local Postgres (`docker-compose.dev.yaml`)
-- [x] Makefile targets: `migration`, `migrate`, `run`, `db-start`, `sqlc`, `build`
-- [x] WebSocket keepalive constants (`pingPeriod`, etc.)
+- [x] Docker Compose, Makefile (`sqlc`, `build`, `migrate`), `.env.example`
 - [x] Presence counting + `GET /api/presence`
-- [x] `.env.example`
+- [x] `chat.Service` — send/list messages with membership checks
+- [x] Message REST APIs — `POST/GET /api/channels/:id/messages`
+- [x] WebSocket `message.send` → persist → `message.new` broadcast
+- [x] Channel membership enforced on messages and WebSocket connect
+- [x] `IsChannelMember` sqlc query + `channels.Service.IsMember`
+- [x] WebSocket event catalog — `docs/WEBSOCKET_EVENTS.md`
 
 ### Known bugs / WIP (remaining)
 
-- [ ] WebSocket has no channel membership validation
-- [ ] Messages not persisted from WebSocket events
 - [ ] No tests anywhere in repo
 
 ---
@@ -119,18 +118,18 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 
 | # | Task | Status |
 |---|------|--------|
-| 1.1 | Create `internal/chat/handler.go` with message HTTP handlers | [ ] |
-| 1.2 | Wire `chat.Service` in `cmd/api/main.go` | [ ] |
-| 1.3 | `POST /api/channels/:id/messages` — create message (auth + membership check) | [ ] |
-| 1.4 | `GET /api/channels/:id/messages` — paginated history (`limit`, `offset` or cursor) | [ ] |
-| 1.5 | Add sqlc query: `IsChannelMember(channel_id, user_id)` (or equivalent) | [ ] |
-| 1.6 | Add membership validation helper in `channels` or shared `internal/authz` package | [ ] |
-| 1.7 | Define standard event type: `message.new` with payload (id, content, sender_id, created_at) | [ ] |
-| 1.8 | WebSocket: handle inbound `message.send` → persist via `chat.Service` → broadcast `message.new` | [ ] |
-| 1.9 | WebSocket: reject or ignore events from non-members | [ ] |
-| 1.10 | Input validation: max message length, non-empty content | [ ] |
-| 1.11 | Consistent JSON error responses across message endpoints | [ ] |
-| 1.12 | Manual/integration test: send via REST, receive via WS; send via WS, fetch via REST | [ ] |
+| 1.1 | Create `internal/chat/handler.go` with message HTTP handlers | [x] |
+| 1.2 | Wire `chat.Service` in `cmd/api/main.go` | [x] |
+| 1.3 | `POST /api/channels/:id/messages` — create message (auth + membership check) | [x] |
+| 1.4 | `GET /api/channels/:id/messages` — paginated history (`limit`, `offset` or cursor) | [x] |
+| 1.5 | Add sqlc query: `IsChannelMember(channel_id, user_id)` (or equivalent) | [x] |
+| 1.6 | Add membership validation helper in `channels` or shared `internal/authz` package | [x] |
+| 1.7 | Define standard event type: `message.new` with payload (id, content, sender_id, created_at) | [x] |
+| 1.8 | WebSocket: handle inbound `message.send` → persist via `chat.Service` → broadcast `message.new` | [x] |
+| 1.9 | WebSocket: reject or ignore events from non-members | [x] |
+| 1.10 | Input validation: max message length, non-empty content | [x] |
+| 1.11 | Consistent JSON error responses across message endpoints | [x] |
+| 1.12 | Manual/integration test: send via REST, receive via WS; send via WS, fetch via REST | [x] |
 
 ### API contract (target)
 
@@ -514,8 +513,10 @@ Phase 14 (Production) ←──────────────────�
 | POST | `/auth/login` | No | Returns JWT |
 | POST | `/api/channels` | JWT | Working |
 | GET | `/api/channels` | JWT | Working |
+| POST | `/api/channels/:id/messages` | JWT | Working — member only |
+| GET | `/api/channels/:id/messages` | JWT | Working — paginated |
 | GET | `/api/presence` | JWT | Working |
-| GET | `/api/ws?channel_id=` | JWT | Working — no membership check yet |
+| GET | `/api/ws?channel_id=` | JWT | Working — member only |
 
 ---
 
@@ -533,5 +534,6 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-06-06 | Phase 1 complete: message REST APIs, WS message.send, membership checks, WEBSOCKET_EVENTS.md |
 | 2026-06-06 | Phase 0 complete: build fix, presence, `.env.example`, `GET /api/presence`, Makefile `sqlc`/`build` |
 | 2026-06-06 | Initial task tracker created from codebase audit + platform roadmap |

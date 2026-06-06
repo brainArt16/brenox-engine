@@ -9,6 +9,7 @@ Go backend for a reusable realtime communication infrastructure (channels, messa
 | [docs/BACKEND_TASKS.md](docs/BACKEND_TASKS.md) | Full task tracker and roadmap |
 | [docs/postman/](docs/postman/) | Postman collection for HTTP API |
 | [AGENTS.md](AGENTS.md) | Agent roles for doc sync (task tracker, README, Postman) |
+| [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
 
 ## Repo layout
 
@@ -60,6 +61,8 @@ Server listens on `:8080`.
 | POST | `/auth/login` | No | Login, returns JWT |
 | POST | `/api/channels` | JWT | Create channel |
 | GET | `/api/channels` | JWT | List user channels |
+| POST | `/api/channels/:id/messages` | JWT | Send message (member only) |
+| GET | `/api/channels/:id/messages` | JWT | Message history (`limit`, `offset`) |
 | GET | `/api/presence` | JWT | List globally online user IDs |
 | GET | `/api/ws?channel_id=` | JWT | WebSocket upgrade |
 

@@ -11,6 +11,7 @@ import (
 
 	authHandler "github.com/brainart16/brenox/internal/auth"
 	channelsHandler "github.com/brainart16/brenox/internal/channels"
+	chatHandler "github.com/brainart16/brenox/internal/chat"
 	middleware "github.com/brainart16/brenox/internal/middleware"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
 
@@ -48,10 +49,10 @@ func main() {
 	authHandlerInstance := authHandler.NewHandler(authService)
 	channelsService := channelsHandler.NewService(queries)
 	channelsHandlerInstance := channelsHandler.NewHandler(channelsService)
+	chatService := chatHandler.NewService(queries)
+	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
-	// Initialize WebSocket Handler
-	// Realtime handler needs access to the hub to manage WebSocket connections and broadcast messages.
-	wsHandler := realtimeHandler.NewHandler(hub)
+	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService)
 
 
 	// Gin router initialization
@@ -69,6 +70,8 @@ func main() {
 	// Register channel routes
 	api.POST("/channels", channelsHandlerInstance.CreateChannel)
 	api.GET("/channels", channelsHandlerInstance.GetChannels)
+	api.POST("/channels/:id/messages", chatHandlerInstance.CreateMessage)
+	api.GET("/channels/:id/messages", chatHandlerInstance.GetMessages)
 
 	// Realtime routes
 	api.GET("/ws", wsHandler.HandleWebSocket)

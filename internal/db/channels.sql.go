@@ -106,3 +106,23 @@ func (q *Queries) GetChannelsByUser(ctx context.Context, userID int64) ([]GetCha
 	}
 	return items, nil
 }
+
+const isChannelMember = `-- name: IsChannelMember :one
+SELECT EXISTS(
+    SELECT 1
+    FROM channel_members
+    WHERE channel_id = $1 AND user_id = $2
+)::boolean AS is_member
+`
+
+type IsChannelMemberParams struct {
+	ChannelID int64
+	UserID    int64
+}
+
+func (q *Queries) IsChannelMember(ctx context.Context, arg IsChannelMemberParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isChannelMember, arg.ChannelID, arg.UserID)
+	var is_member bool
+	err := row.Scan(&is_member)
+	return is_member, err
+}
