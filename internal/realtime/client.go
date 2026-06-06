@@ -55,52 +55,71 @@ func (h *Hub) Run() {
 		// When a new client registers, add it to the clients map.
 		case client := <-h.register:
 
-			// create a channel if not exists for the client's channel ID
+			h.mu.Lock()
 			if h.channels[client.channelID] == nil {
 				h.channels[client.channelID] = make(map[*Client]bool)
 			}
 			h.channels[client.channelID][client] = true
 
-			// Broadcast user online status to the channel. This can be used by clients to update their UI (e.g. show online users).
-			h.broadcast <- Event{
-				Type:      "presence.online",
-				ChannelID: client.channelID,
-				Payload: map[string]any {
-					"user_id": client.userID,
-				},
+			h.onlineUsers[client.userID]++
+			firstConnection := h.onlineUsers[client.userID] == 1
+			h.mu.Unlock()
+
+			// First connection only — additional tabs do not re-emit online.
+			if firstConnection {
+				h.broadcast <- Event{
+					Type:      "presence.online",
+					ChannelID: client.channelID,
+					Payload: map[string]any{
+						"user_id": client.userID,
+					},
+				}
 			}
 
 		// When a client unregisters, remove it from the clients map and close its send channel.
 		case client := <-h.unregister:
 
-			if _, ok := h.channels[client.channelID][client]; ok {
-				delete(h.channels[client.channelID], client)
+			h.mu.Lock()
+			_, ok := h.channels[client.channelID][client]
+			if !ok {
+				h.mu.Unlock()
+				continue
+			}
 
-				// Decrease active connection count for the user. If it reaches zero, broadcast offline status.
-				h.onlineUsers[client.userID]--
+			delete(h.channels[client.channelID], client)
 
-				// Remove empty counts
-				if h.onlineUsers[client.userID] <= 0 {
-					delete(h.onlineUsers, client.userID)
+			h.onlineUsers[client.userID]--
+			lastConnection := h.onlineUsers[client.userID] <= 0
+			if lastConnection {
+				delete(h.onlineUsers, client.userID)
+			}
+			h.mu.Unlock()
 
-					// Broadcast user offline status to the channel.
-					h.broadcast <- Event{
-						Type:      "presence.offline",
-						ChannelID: client.channelID,
-						Payload: map[string]any {
-							"user_id": client.userID,
-						},
-					}
+			close(client.send)
+
+			// Last connection only — other tabs stay online.
+			if lastConnection {
+				h.broadcast <- Event{
+					Type:      "presence.offline",
+					ChannelID: client.channelID,
+					Payload: map[string]any{
+						"user_id": client.userID,
+					},
 				}
-
-				close(client.send)
 			}
 
 		// When a message is broadcast, send it to all clients subscribed to the relevant channel.
 		case event := <-h.broadcast:
 
+			h.mu.RLock()
 			clients := h.channels[event.ChannelID]
+			targets := make([]*Client, 0, len(clients))
 			for client := range clients {
+				targets = append(targets, client)
+			}
+			h.mu.RUnlock()
+
+			for _, client := range targets {
 				client.send <- event
 			}
 		}

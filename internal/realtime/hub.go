@@ -1,21 +1,30 @@
 package realtime
 
-
+import "sync"
 
 // Hub co-ordinates all connected clients and manages message broadcasting.
 type Hub struct {
-	// Connected clients registry. Channel Id 
+	mu sync.RWMutex
+
+	// Connected clients registry keyed by channel ID.
 	channels map[int64]map[*Client]bool
 
-	// Register new clients. Add new clients to the registry.
-	register chan *Client
-
-	// Unregister clients. Remove disconnected clients from the registry.
+	register   chan *Client
 	unregister chan *Client
+	broadcast  chan Event
 
-	// Global broadcast channel. Event (Messages) sent here are broadcast to all clients.
-	broadcast chan Event
-
-	// Track online users. Use int instead of bool, one user can have multiple connections (e.g. multiple browser tabs).
+	// Global connection count per user (supports multiple tabs/devices).
 	onlineUsers map[int64]int
+}
+
+// OnlineUserIDs returns a snapshot of users with at least one active WebSocket connection.
+func (h *Hub) OnlineUserIDs() []int64 {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	ids := make([]int64, 0, len(h.onlineUsers))
+	for userID := range h.onlineUsers {
+		ids = append(ids, userID)
+	}
+	return ids
 }

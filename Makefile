@@ -1,4 +1,4 @@
-.PHONY: migration
+.PHONY: migration migrate run db-start sqlc build
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -21,3 +21,9 @@ run:
 
 db-start:
 	docker compose -f docker-compose.dev.yaml up -d
+
+sqlc:
+	sqlc generate
+
+build:
+	go build ./...

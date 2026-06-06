@@ -1,27 +1,14 @@
 package realtime
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
 
+	"github.com/gin-gonic/gin"
+)
 
-// 	Return currently online users.
-func (h *Handler) GetPresence(
-	c *gin.Context,
-) {
-
-	onlineUsers := []int64{}
-
-	for userID := range h.hub.onlineUsers {
-
-		onlineUsers = append(
-			onlineUsers,
-			userID,
-		)
-	}
-
-	c.JSON(
-		200,
-		gin.H{
-			"online_users": onlineUsers,
-		},
-	)
+// GetPresence returns user IDs with at least one active WebSocket connection.
+func (h *Handler) GetPresence(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"online_users": h.hub.OnlineUserIDs(),
+	})
 }

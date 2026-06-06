@@ -70,8 +70,9 @@ func main() {
 	api.POST("/channels", channelsHandlerInstance.CreateChannel)
 	api.GET("/channels", channelsHandlerInstance.GetChannels)
 
-	// Register WebSocket route
+	// Realtime routes
 	api.GET("/ws", wsHandler.HandleWebSocket)
+	api.GET("/presence", wsHandler.GetPresence)
 
 	// Start HTTP server
 	router.Run(":8080")

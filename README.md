@@ -60,6 +60,7 @@ Server listens on `:8080`.
 | POST | `/auth/login` | No | Login, returns JWT |
 | POST | `/api/channels` | JWT | Create channel |
 | GET | `/api/channels` | JWT | List user channels |
+| GET | `/api/presence` | JWT | List globally online user IDs |
 | GET | `/api/ws?channel_id=` | JWT | WebSocket upgrade |
 
 Import [docs/postman/brenox.postman_collection.json](docs/postman/brenox.postman_collection.json) for request examples.
