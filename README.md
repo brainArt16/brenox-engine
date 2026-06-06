@@ -39,7 +39,7 @@ docs/
 
 Prerequisites: Go 1.20+, Docker, Make.
 
-1. Copy `.env.example` to `.env` and set `DB_*` and `JWT_SECRET`.
+1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, and optional WebSocket vars (`WS_ALLOWED_ORIGINS`, `WS_MAX_CONNECTIONS_PER_USER`, `WS_MAX_CONNECTIONS_PER_IP`).
 
 2. Start database and run migrations:
 
@@ -88,7 +88,9 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Send message |
 | GET | `/api/workspaces/:workspace_id/channels/:id/messages` | JWT | Message history |
 | GET | `/api/presence` | JWT | Globally online user IDs |
-| GET | `/api/ws?workspace_id=&channel_id=` | JWT | WebSocket upgrade |
+| GET | `/api/ws?workspace_id=&channel_id=` | JWT (header or `?token=`) | WebSocket upgrade |
+
+WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Graceful shutdown closes active WebSocket connections on SIGTERM.
 
 Channel names are unique **per workspace**.
 

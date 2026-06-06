@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 4 complete)
+> **Last updated:** 2026-06-06 (Phase 5 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -33,7 +33,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 2 | Channel Join / Leave | 🟢 Complete | 8 / 8 |
 | 3 | Workspace Architecture | 🟢 Complete | 14 / 14 |
 | 4 | Permissions System | 🟢 Complete | 12 / 12 |
-| 5 | Realtime Hardening | 🔴 Not started | 0 / 10 |
+| 5 | Realtime Hardening | 🟢 Complete | 10 / 10 |
 | 6 | Redis & Horizontal Scale | 🔴 Not started | 0 / 10 |
 | 7 | Presence (Production) | 🔴 Not started | 0 / 8 |
 | 8 | Notifications | 🔴 Not started | 0 / 10 |
@@ -46,7 +46,7 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~30% (Phases 0–4 complete)
+**Overall backend completion:** ~43% (Phases 0–5 complete)
 
 ---
 
@@ -75,7 +75,7 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 - [x] Create channel — `POST /api/channels` (creator auto-added as member)
 - [x] List user channels — `GET /api/channels`
 - [x] WebSocket hub — `GET /api/ws?channel_id=` (in-memory, single node)
-- [x] WebSocket event model (`internal/realtime/message.go`)
+- [x] WebSocket event model (`internal/realtime/events.go`)
 - [x] Docker Compose, Makefile (`sqlc`, `build`, `migrate`), `.env.example`
 - [x] Presence counting + `GET /api/presence`
 - [x] `chat.Service` — send/list messages with membership checks
@@ -251,16 +251,16 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 5.1 | Document full event catalog in `docs/WEBSOCKET_EVENTS.md` | [ ] |
-| 5.2 | Standardize event envelope: `type`, `channel_id`, `workspace_id`, `payload`, `timestamp`, `event_id` | [ ] |
-| 5.3 | WebSocket auth via query param `?token=` (in addition to Authorization header) | [ ] |
-| 5.4 | Restrict `CheckOrigin` to configurable allowed origins | [ ] |
-| 5.5 | Fix hub deadlock risk (don't send to `broadcast` from inside hub select without buffering) | [ ] |
-| 5.6 | Client `send` channel buffer size + backpressure policy | [ ] |
-| 5.7 | Graceful shutdown: drain hub, close WS connections on SIGTERM | [ ] |
-| 5.8 | Typing indicators: `typing.start`, `typing.stop` (ephemeral, no DB) | [ ] |
-| 5.9 | Connection limits per user / per IP (basic) | [ ] |
-| 5.10 | Structured logging for connect/disconnect/errors | [ ] |
+| 5.1 | Document full event catalog in `docs/WEBSOCKET_EVENTS.md` | [x] |
+| 5.2 | Standardize event envelope: `type`, `channel_id`, `workspace_id`, `payload`, `timestamp`, `event_id` | [x] |
+| 5.3 | WebSocket auth via query param `?token=` (in addition to Authorization header) | [x] |
+| 5.4 | Restrict `CheckOrigin` to configurable allowed origins | [x] |
+| 5.5 | Fix hub deadlock risk (don't send to `broadcast` from inside hub select without buffering) | [x] |
+| 5.6 | Client `send` channel buffer size + backpressure policy | [x] |
+| 5.7 | Graceful shutdown: drain hub, close WS connections on SIGTERM | [x] |
+| 5.8 | Typing indicators: `typing.start`, `typing.stop` (ephemeral, no DB) | [x] |
+| 5.9 | Connection limits per user / per IP (basic) | [x] |
+| 5.10 | Structured logging for connect/disconnect/errors | [x] |
 
 ---
 

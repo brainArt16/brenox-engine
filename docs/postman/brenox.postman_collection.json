@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "brenox-api-collection",
     "name": "Brenox API",
-    "description": "Brenox realtime communication platform — HTTP API.\n\nImport `brenox.postman_environment.json`. Run **Auth → Login** first.\n\nWebSocket: `GET {{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}` with Bearer token.",
+    "description": "Brenox realtime communication platform — HTTP API.\n\nImport `brenox.postman_environment.json`. Run **Auth → Login** first.\n\nWebSocket: `GET {{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}&token={{token}}` or use Bearer header. See docs/WEBSOCKET_EVENTS.md.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -302,15 +302,16 @@
             "method": "GET",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}",
+              "raw": "{{baseUrl}}/api/ws?workspace_id={{workspaceId}}&channel_id={{channelId}}&token={{token}}",
               "host": ["{{baseUrl}}"],
               "path": ["api", "ws"],
               "query": [
                 { "key": "workspace_id", "value": "{{workspaceId}}" },
-                { "key": "channel_id", "value": "{{channelId}}" }
+                { "key": "channel_id", "value": "{{channelId}}" },
+                { "key": "token", "value": "{{token}}" }
               ]
             },
-            "description": "Requires workspace + channel membership. See docs/WEBSOCKET_EVENTS.md."
+            "description": "Requires workspace + channel membership. Auth via Bearer header or ?token=. Returns 429 if connection limits exceeded. See docs/WEBSOCKET_EVENTS.md."
           }
         }
       ]

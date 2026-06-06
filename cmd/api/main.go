@@ -1,7 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -19,6 +26,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Failed to load environment variables")
@@ -31,8 +40,9 @@ func main() {
 
 	queries := db.New(pool)
 	authzService := authz.NewService(queries)
+	wsConfig := realtimeHandler.LoadConfig()
 
-	hub := realtimeHandler.NewHub()
+	hub := realtimeHandler.NewHub(wsConfig)
 	go hub.Run()
 
 	authService := authHandler.NewService(queries)
@@ -47,7 +57,7 @@ func main() {
 	chatService := chatHandler.NewService(queries, authzService)
 	chatHandlerInstance := chatHandler.NewHandler(chatService)
 
-	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService)
+	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, wsConfig)
 
 	router := gin.Default()
 
@@ -77,5 +87,29 @@ func main() {
 	api.GET("/ws", wsHandler.HandleWebSocket)
 	api.GET("/presence", wsHandler.GetPresence)
 
-	router.Run(":8080")
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: router,
+	}
+
+	go func() {
+		slog.Info("http server listening", "addr", server.Addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	slog.Info("shutting down server")
+	hub.Shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		slog.Error("server shutdown failed", "error", err)
+	}
 }

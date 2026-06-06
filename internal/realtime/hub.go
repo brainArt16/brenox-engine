@@ -1,20 +1,204 @@
 package realtime
 
-import "sync"
+import (
+	"log/slog"
+	"sync"
+)
+
+const (
+	broadcastBufferSize = 256
+	clientSendBuffer    = 16
+)
 
 // Hub co-ordinates all connected clients and manages message broadcasting.
 type Hub struct {
 	mu sync.RWMutex
+	cfg Config
 
-	// Connected clients registry keyed by channel ID.
 	channels map[int64]map[*Client]bool
 
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan Event
+	done       chan struct{}
 
-	// Global connection count per user (supports multiple tabs/devices).
-	onlineUsers map[int64]int
+	onlineUsers     map[int64]int
+	userConnections map[int64]int
+	ipConnections   map[string]int
+}
+
+func NewHub(cfg Config) *Hub {
+	return &Hub{
+		cfg:             cfg,
+		channels:        make(map[int64]map[*Client]bool),
+		register:        make(chan *Client),
+		unregister:      make(chan *Client),
+		broadcast:       make(chan Event, broadcastBufferSize),
+		done:            make(chan struct{}),
+		onlineUsers:     make(map[int64]int),
+		userConnections: make(map[int64]int),
+		ipConnections:   make(map[string]int),
+	}
+}
+
+func (h *Hub) CanConnect(userID int64, remoteIP string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	if h.cfg.MaxConnectionsPerUser > 0 && h.userConnections[userID] >= h.cfg.MaxConnectionsPerUser {
+		return false
+	}
+	if h.cfg.MaxConnectionsPerIP > 0 && h.ipConnections[remoteIP] >= h.cfg.MaxConnectionsPerIP {
+		return false
+	}
+	return true
+}
+
+// Publish queues an outbound event without blocking the hub loop.
+func (h *Hub) Publish(event Event) {
+	if event.EventID == "" {
+		event = NewOutboundEvent(event.Type, event.WorkspaceID, event.ChannelID, event.Payload)
+	}
+
+	go func() {
+		select {
+		case h.broadcast <- event:
+		case <-h.done:
+		default:
+			slog.Warn("broadcast queue full, dropping event", "type", event.Type, "channel_id", event.ChannelID)
+		}
+	}()
+}
+
+func (h *Hub) Run() {
+	for {
+		select {
+		case <-h.done:
+			return
+
+		case client := <-h.register:
+			h.handleRegister(client)
+
+		case client := <-h.unregister:
+			h.handleUnregister(client)
+
+		case event := <-h.broadcast:
+			h.deliver(event)
+		}
+	}
+}
+
+func (h *Hub) handleRegister(client *Client) {
+	h.mu.Lock()
+	if h.channels[client.channelID] == nil {
+		h.channels[client.channelID] = make(map[*Client]bool)
+	}
+	h.channels[client.channelID][client] = true
+
+	h.onlineUsers[client.userID]++
+	h.userConnections[client.userID]++
+	h.ipConnections[client.remoteIP]++
+	firstConnection := h.onlineUsers[client.userID] == 1
+	h.mu.Unlock()
+
+	slog.Info("websocket connected",
+		"user_id", client.userID,
+		"workspace_id", client.workspaceID,
+		"channel_id", client.channelID,
+		"remote_ip", client.remoteIP,
+	)
+
+	if firstConnection {
+		h.Publish(NewOutboundEvent("presence.online", client.workspaceID, client.channelID, map[string]any{
+			"user_id": client.userID,
+		}))
+	}
+}
+
+func (h *Hub) handleUnregister(client *Client) {
+	h.mu.Lock()
+	_, ok := h.channels[client.channelID][client]
+	if !ok {
+		h.mu.Unlock()
+		return
+	}
+
+	delete(h.channels[client.channelID], client)
+
+	h.onlineUsers[client.userID]--
+	h.userConnections[client.userID]--
+	h.ipConnections[client.remoteIP]--
+	lastConnection := h.onlineUsers[client.userID] <= 0
+	if lastConnection {
+		delete(h.onlineUsers, client.userID)
+	}
+	if h.userConnections[client.userID] <= 0 {
+		delete(h.userConnections, client.userID)
+	}
+	if h.ipConnections[client.remoteIP] <= 0 {
+		delete(h.ipConnections, client.remoteIP)
+	}
+	h.mu.Unlock()
+
+	close(client.send)
+
+	slog.Info("websocket disconnected",
+		"user_id", client.userID,
+		"workspace_id", client.workspaceID,
+		"channel_id", client.channelID,
+	)
+
+	if lastConnection {
+		h.Publish(NewOutboundEvent("presence.offline", client.workspaceID, client.channelID, map[string]any{
+			"user_id": client.userID,
+		}))
+	}
+}
+
+func (h *Hub) deliver(event Event) {
+	h.mu.RLock()
+	clients := h.channels[event.ChannelID]
+	targets := make([]*Client, 0, len(clients))
+	for client := range clients {
+		targets = append(targets, client)
+	}
+	h.mu.RUnlock()
+
+	for _, client := range targets {
+		select {
+		case client.send <- event:
+		default:
+			slog.Warn("client send buffer full, disconnecting slow client",
+				"user_id", client.userID,
+				"channel_id", client.channelID,
+			)
+			go func(c *Client) {
+				h.unregister <- c
+			}(client)
+		}
+	}
+}
+
+// Shutdown stops the hub loop and closes active connections.
+func (h *Hub) Shutdown() {
+	select {
+	case <-h.done:
+		return
+	default:
+		close(h.done)
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for channelID, clients := range h.channels {
+		for client := range clients {
+			close(client.send)
+			_ = client.conn.Close()
+			delete(clients, client)
+		}
+		delete(h.channels, channelID)
+	}
 }
 
 // OnlineUserIDs returns a snapshot of users with at least one active WebSocket connection.

@@ -8,77 +8,42 @@ import (
 	jwtutil "github.com/brainart16/brenox/pkg/jwt"
 )
 
-
-// AuthMiddleware protects routes.
+// AuthMiddleware protects routes. Accepts JWT from Authorization header or ?token= query param.
 func AuthMiddleware() gin.HandlerFunc {
-
 	return func(c *gin.Context) {
+		tokenString, ok := bearerToken(c)
+		if !ok {
+			tokenString = strings.TrimSpace(c.Query("token"))
+		}
 
-		// Get Authorization header.
-		authHeader := c.GetHeader(
-			"Authorization",
-		)
-
-		if authHeader == "" {
-
-			c.JSON(
-				http.StatusUnauthorized,
-				gin.H{
-					"error": "missing auth header",
-				},
-			)
-
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing auth token"})
 			c.Abort()
-
 			return
 		}
 
-		// Expected format: Bearer token_here
-		splitToken := strings.Split(
-			authHeader,
-			"Bearer ",
-		)
-
-		if len(splitToken) != 2 {
-
-			c.JSON(
-				http.StatusUnauthorized,
-				gin.H{
-					"error": "invalid auth header",
-				},
-			)
-
-			c.Abort()
-
-			return
-		}
-
-		tokenString := splitToken[1]
-
-		// Validate JWT token.
-		claims, err := jwtutil.ValidateToken(
-			tokenString,
-		)
-
+		claims, err := jwtutil.ValidateToken(tokenString)
 		if err != nil {
-
-			c.JSON(
-				http.StatusUnauthorized,
-				gin.H{
-					"error": "invalid token",
-				},
-			)
-
-			// Stop processing request pipeline immediately
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			c.Abort()
-
 			return
 		}
 
-		// Store authenticated user inside request context.
 		c.Set("user_id", claims.UserID)
-
-		// Continue processing request pipeline.
 		c.Next()
 	}
+}
+
+func bearerToken(c *gin.Context) (string, bool) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return "", false
+	}
+
+	parts := strings.SplitN(authHeader, "Bearer ", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return "", false
+	}
+
+	return parts[1], true
 }

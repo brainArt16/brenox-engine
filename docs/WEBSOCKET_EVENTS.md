@@ -1,15 +1,30 @@
 # WebSocket Events
 
-Event envelope:
+Connect: `GET /api/ws?workspace_id=&channel_id=` with JWT via `Authorization: Bearer …` or `?token=`.
+
+All outbound events use a standard envelope:
 
 ```json
 {
   "type": "event.type",
   "workspace_id": 1,
   "channel_id": 1,
+  "event_id": "1717670400000000000-1",
+  "timestamp": "2026-06-06T12:00:00.123456789Z",
   "payload": {}
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `type` | Event name (see catalog below) |
+| `workspace_id` | Workspace scope |
+| `channel_id` | Channel scope for delivery |
+| `event_id` | Unique ID for deduplication / tracing |
+| `timestamp` | UTC RFC3339Nano |
+| `payload` | Event-specific body |
+
+Inbound client events only require `type` and `payload`; the server sets scope from the connection.
 
 ## Client → Server
 
@@ -26,6 +41,18 @@ Send a chat message. Persisted and broadcast as `message.new`.
 
 Errors return `type: "error"` to the sender only.
 
+### `typing.start` / `typing.stop`
+
+Ephemeral typing indicators (not stored). Broadcast to other channel members.
+
+```json
+{ "type": "typing.start" }
+```
+
+```json
+{ "type": "typing.stop" }
+```
+
 ## Server → Client
 
 ### `message.new`
@@ -35,7 +62,10 @@ New message saved to the database.
 ```json
 {
   "type": "message.new",
+  "workspace_id": 1,
   "channel_id": 1,
+  "event_id": "…",
+  "timestamp": "2026-06-06T12:00:00Z",
   "payload": {
     "id": 1,
     "sender_id": 2,
@@ -45,13 +75,27 @@ New message saved to the database.
 }
 ```
 
+### `typing.start` / `typing.stop`
+
+Another member started or stopped typing.
+
+```json
+{
+  "type": "typing.start",
+  "workspace_id": 1,
+  "channel_id": 1,
+  "payload": { "user_id": 2 }
+}
+```
+
 ### `presence.online` / `presence.offline`
 
-User connection count crossed 0 ↔ 1 globally.
+User's global WebSocket connection count crossed 0 ↔ 1.
 
 ```json
 {
   "type": "presence.online",
+  "workspace_id": 1,
   "channel_id": 1,
   "payload": { "user_id": 2 }
 }
@@ -64,6 +108,7 @@ Channel membership changed via REST join/leave.
 ```json
 {
   "type": "member.joined",
+  "workspace_id": 1,
   "channel_id": 1,
   "payload": { "user_id": 2 }
 }
@@ -76,7 +121,12 @@ Sent to the client that triggered the failure.
 ```json
 {
   "type": "error",
+  "workspace_id": 1,
   "channel_id": 1,
   "payload": { "message": "invalid message payload" }
 }
 ```
+
+## Connection limits
+
+If per-user or per-IP limits are exceeded, the HTTP upgrade returns `429 Too Many Requests`. Configure via `WS_MAX_CONNECTIONS_PER_USER` and `WS_MAX_CONNECTIONS_PER_IP`.

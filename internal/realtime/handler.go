@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"net"
 	"net/http"
 	"strconv"
 
@@ -10,23 +11,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
 type Handler struct {
 	hub      *Hub
 	chat     *chat.Service
 	channels *channels.Service
+	cfg      Config
+	upgrader websocket.Upgrader
 }
 
-func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service) *Handler {
+func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service, cfg Config) *Handler {
 	return &Handler{
 		hub:      hub,
 		chat:     chatService,
 		channels: channelsService,
+		cfg:      cfg,
+		upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return cfg.originAllowed(r.Header.Get("Origin"))
+			},
+		},
 	}
 }
 
@@ -44,6 +47,12 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 	}
 
 	userID := c.MustGet("user_id").(int64)
+	remoteIP := clientIP(c)
+
+	if !h.hub.CanConnect(userID, remoteIP) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "connection limit exceeded"})
+		return
+	}
 
 	isWorkspaceMember, err := h.channels.IsWorkspaceMember(c.Request.Context(), workspaceID, userID)
 	if err != nil {
@@ -70,7 +79,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 		return
 	}
 
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	conn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
 	}
@@ -80,13 +89,22 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 		userID:      userID,
 		workspaceID: workspaceID,
 		channelID:   channelID,
+		remoteIP:    remoteIP,
 		hub:         h.hub,
 		chat:        h.chat,
-		send:        make(chan Event, 16),
+		send:        make(chan Event, clientSendBuffer),
 	}
 
 	h.hub.register <- client
 
 	go client.writePump()
 	go client.readPump()
+}
+
+func clientIP(c *gin.Context) string {
+	ip := c.ClientIP()
+	if host, _, err := net.SplitHostPort(ip); err == nil {
+		return host
+	}
+	return ip
 }
