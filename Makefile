@@ -1,4 +1,4 @@
-.PHONY: migration migrate run db-start sqlc build test test-integration
+.PHONY: migration migrate run db-start sqlc build test test-integration test-integration-db
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -22,6 +22,9 @@ run:
 db-start:
 	docker compose -f docker-compose.dev.yaml up -d
 
+stack:
+	docker compose up -d --build
+
 sqlc:
 	sqlc generate
 
@@ -33,3 +36,7 @@ test:
 
 test-integration:
 	REDIS_URL=redis://localhost:6379/0 go test ./internal/realtime/ -run TestRedisBrokerCrossInstance -count=1
+
+test-integration-db:
+	DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_NAME=brenox JWT_SECRET=test \
+	go test ./internal/integration/ -count=1

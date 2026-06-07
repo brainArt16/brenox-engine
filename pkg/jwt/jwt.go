@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	jwtlib "github.com/golang-jwt/jwt/v5"
 )
 
 var ErrTokenInvalid = errors.New("invalid token")
+var ErrTokenRevoked = errors.New("token revoked")
 
 // CustomClaims defines data stored inside JWT token.
 type CustomClaims struct {
@@ -46,18 +48,38 @@ func refreshGracePeriod() time.Duration {
 	return time.Duration(hours) * time.Hour
 }
 
-// GenerateToken creates a signed access JWT.
+// GenerateToken creates a signed access JWT with a unique token ID (jti).
 func GenerateToken(userID int64) (string, error) {
+	now := time.Now()
 	claims := CustomClaims{
 		UserID: userID,
 		RegisteredClaims: jwtlib.RegisteredClaims{
-			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(accessTokenTTL())),
-			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
+			ID:        uuid.NewString(),
+			ExpiresAt: jwtlib.NewNumericDate(now.Add(accessTokenTTL())),
+			IssuedAt:  jwtlib.NewNumericDate(now),
 		},
 	}
 
 	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
 	return token.SignedString(tokenSecret())
+}
+
+// TokenExpiry returns the expiration time encoded in a token, if present.
+func TokenExpiry(tokenString string) (time.Time, bool) {
+	claims, err := parseClaims(tokenString)
+	if err != nil || claims.ExpiresAt == nil {
+		return time.Time{}, false
+	}
+	return claims.ExpiresAt.Time, true
+}
+
+// TokenID returns the jti claim when present.
+func TokenID(tokenString string) (string, error) {
+	claims, err := parseClaims(tokenString)
+	if err != nil {
+		return "", err
+	}
+	return claims.ID, nil
 }
 
 // ValidateToken parses and validates a non-expired token.

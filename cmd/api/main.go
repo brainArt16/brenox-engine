@@ -17,6 +17,7 @@ import (
 	"github.com/brainart16/brenox/internal/attachments"
 	"github.com/brainart16/brenox/internal/database"
 	"github.com/brainart16/brenox/internal/health"
+	"github.com/brainart16/brenox/internal/metrics"
 	"github.com/brainart16/brenox/internal/notifications"
 	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
@@ -40,9 +41,8 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Failed to load environment variables")
+	if err := godotenv.Load(); err != nil {
+		slog.Warn("no .env file loaded, using process environment", "error", err)
 	}
 
 	pool, err := database.NewPostgresPool()
@@ -125,15 +125,23 @@ func main() {
 	webhookDispatcher := webhooks.NewDispatcher(queries)
 	devAPIService := developerapi.NewService(queries, realtimeHandler.NewChatBroadcaster(hub), webhookDispatcher)
 	devAPIHandler := developerapi.NewHandler(devAPIService)
-	rateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadConfig())
+	apiRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadConfig())
+	ipRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.IPConfigToConfig(ratelimit.LoadIPConfig()))
+	auditRecorder := middleware.NewAuditRecorder(queries)
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
 
 	router := gin.Default()
+	router.Use(middleware.SecurityHeadersMiddleware())
 	router.Use(middleware.CORSMiddleware(middleware.LoadCORSConfig()))
+	router.Use(middleware.RequestSizeLimitMiddleware(middleware.LoadMaxBodyBytes()))
+	router.Use(middleware.IPRateLimitMiddleware(ipRateLimiter))
+	router.Use(middleware.AuditMiddleware(auditRecorder))
+	router.Use(metrics.Middleware())
 
 	router.GET("/health", healthHandler.Check)
+	router.GET("/metrics", metrics.Handler())
 
 	authRouter := router.Group("/auth")
 	authRouter.POST("/register", authHandlerInstance.Register)
@@ -141,7 +149,7 @@ func main() {
 	authRouter.POST("/refresh", authHandlerInstance.Refresh)
 
 	api := router.Group("/api")
-	api.Use(middleware.AuthMiddleware())
+	api.Use(middleware.AuthMiddleware(authService))
 
 	api.POST("/uploads", attachmentHandler.CreateUpload)
 	api.GET("/notifications", notificationHandler.List)
@@ -185,7 +193,7 @@ func main() {
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))
-	v1.Use(middleware.RateLimitMiddleware(rateLimiter))
+	v1.Use(middleware.RateLimitMiddleware(apiRateLimiter))
 	v1.Use(middleware.IdempotencyMiddleware(devAPIService))
 	v1.POST("/users", devAPIHandler.ProvisionUser)
 	v1.POST("/channels", devAPIHandler.CreateChannel)

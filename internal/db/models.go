@@ -48,6 +48,18 @@ type Attachment struct {
 	CreatedAt  pgtype.Timestamptz
 }
 
+type AuditLog struct {
+	ID         int64
+	UserID     pgtype.Int8
+	AppID      pgtype.Int8
+	Action     string
+	Method     string
+	Path       string
+	IpAddress  pgtype.Text
+	StatusCode pgtype.Int4
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Call struct {
 	ID          int64
 	ChannelID   int64
@@ -129,6 +141,13 @@ type Notification struct {
 	Data      []byte
 	ReadAt    pgtype.Timestamptz
 	CreatedAt pgtype.Timestamptz
+}
+
+type RevokedToken struct {
+	Jti       string
+	UserID    int64
+	RevokedAt pgtype.Timestamptz
+	ExpiresAt pgtype.Timestamptz
 }
 
 type User struct {

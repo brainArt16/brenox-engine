@@ -1,15 +1,19 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	jwtutil "github.com/brainart16/brenox/pkg/jwt"
 )
 
+type AccessTokenValidator interface {
+	ValidateAccessToken(ctx context.Context, tokenString string) (int64, error)
+}
+
 // AuthMiddleware protects routes. Accepts JWT from Authorization header or ?token= query param.
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(validator AccessTokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenString, ok := bearerToken(c)
 		if !ok {
@@ -22,28 +26,14 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := jwtutil.ValidateToken(tokenString)
+		userID, err := validator.ValidateAccessToken(c.Request.Context(), tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", claims.UserID)
+		c.Set("user_id", userID)
 		c.Next()
 	}
-}
-
-func bearerToken(c *gin.Context) (string, bool) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		return "", false
-	}
-
-	parts := strings.SplitN(authHeader, "Bearer ", 2)
-	if len(parts) != 2 || parts[1] == "" {
-		return "", false
-	}
-
-	return parts[1], true
 }

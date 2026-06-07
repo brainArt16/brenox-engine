@@ -16,6 +16,10 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md) | SDK auth, WebSocket, reconnection guide |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Deploy, rollback, incident response |
+| [docs/SECRETS.md](docs/SECRETS.md) | Secrets management |
+| [docs/SECURITY.md](docs/SECURITY.md) | Security review notes |
+| [docs/LOAD_TEST.md](docs/LOAD_TEST.md) | Load test baselines + k6 script |
 
 ## Repo layout
 
@@ -41,7 +45,8 @@ internal/
   redis/              Redis client wrapper
   health/             Health check handler
   database/           Postgres pool
-  middleware/         JWT auth middleware
+  metrics/             Prometheus metrics
+  middleware/          Auth, CORS, rate limits, audit, security headers
 pkg/jwt/              JWT helpers
 sql/
   migrations/         Schema migrations
@@ -62,6 +67,12 @@ Prerequisites: Go 1.20+, Docker, Make.
 ```bash
 make db-start
 make migrate
+```
+
+Or run the full production-like stack (API + Postgres + Redis + MinIO):
+
+```bash
+make stack
 ```
 
 3. Run the API:
@@ -89,6 +100,7 @@ All channel and message routes are scoped under a workspace.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | No | DB + Redis health probe |
+| GET | `/metrics` | No | Prometheus metrics |
 | POST | `/auth/register` | No | Create account |
 | POST | `/auth/login` | No | Login, returns JWT |
 | POST | `/auth/refresh` | No | Refresh JWT (valid or recently expired token) |

@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 13 complete)
+> **Last updated:** 2026-06-06 (Phase 14 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -42,11 +42,11 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 11 | WebRTC — Video | 🟢 Complete | 8 / 8 |
 | 12 | Public Developer API | 🟢 Complete | 12 / 12 |
 | 13 | SDK Support Layer | 🟢 Complete | 8 / 8 |
-| 14 | Production Readiness | 🔴 Not started | 0 / 18 |
+| 14 | Production Readiness | 🟢 Complete | 18 / 18 |
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~89% (Phases 0–13 complete)
+**Overall backend completion:** 100% (Phases 0–14 complete)
 
 ---
 
@@ -438,24 +438,24 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 14.1 | Rate limiting middleware (per IP + per API key) | [ ] |
-| 14.2 | Request size limits | [ ] |
-| 14.3 | Refresh token rotation + revocation list | [ ] |
-| 14.4 | Audit logging table + middleware for sensitive actions | [ ] |
-| 14.5 | Structured JSON logging (zerolog or slog) | [ ] |
-| 14.6 | Prometheus metrics endpoint | [ ] |
-| 14.7 | OpenTelemetry tracing (optional) | [ ] |
-| 14.8 | Dockerfile for API server | [ ] |
-| 14.9 | docker-compose production-like stack (API + Postgres + Redis + MinIO) | [ ] |
-| 14.10 | CI pipeline: lint, test, build (`GitHub Actions` or similar) | [ ] |
-| 14.11 | Unit tests — auth, channels, chat, authz | [ ] |
-| 14.12 | Integration tests — DB (Testcontainers) | [ ] |
-| 14.13 | Integration tests — WebSocket + Redis multi-node | [ ] |
-| 14.14 | Secrets management docs (no secrets in repo) | [ ] |
-| 14.15 | SQL injection review (sqlc mitigates; verify dynamic SQL none) | [ ] |
-| 14.16 | Security headers middleware | [ ] |
-| 14.17 | Load test baseline (k6 or vegeta) — document RPS targets | [ ] |
-| 14.18 | Runbook: `docs/RUNBOOK.md` (deploy, rollback, incident) | [ ] |
+| 14.1 | Rate limiting middleware (per IP + per API key) | [x] |
+| 14.2 | Request size limits | [x] |
+| 14.3 | Refresh token rotation + revocation list | [x] |
+| 14.4 | Audit logging table + middleware for sensitive actions | [x] |
+| 14.5 | Structured JSON logging (zerolog or slog) | [x] |
+| 14.6 | Prometheus metrics endpoint | [x] |
+| 14.7 | OpenTelemetry tracing (optional) | [x] |
+| 14.8 | Dockerfile for API server | [x] |
+| 14.9 | docker-compose production-like stack (API + Postgres + Redis + MinIO) | [x] |
+| 14.10 | CI pipeline: lint, test, build (`GitHub Actions` or similar) | [x] |
+| 14.11 | Unit tests — auth, channels, chat, authz | [x] |
+| 14.12 | Integration tests — DB (Testcontainers) | [x] |
+| 14.13 | Integration tests — WebSocket + Redis multi-node | [x] |
+| 14.14 | Secrets management docs (no secrets in repo) | [x] |
+| 14.15 | SQL injection review (sqlc mitigates; verify dynamic SQL none) | [x] |
+| 14.16 | Security headers middleware | [x] |
+| 14.17 | Load test baseline (k6 or vegeta) — document RPS targets | [x] |
+| 14.18 | Runbook: `docs/RUNBOOK.md` (deploy, rollback, incident) | [x] |
 
 ---
 
