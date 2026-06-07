@@ -14,6 +14,7 @@ type Event struct {
 	WorkspaceID int64  `json:"workspace_id,omitempty"`
 	ChannelID   int64  `json:"channel_id"`
 	EventID     string `json:"event_id"`
+	Sequence    int64  `json:"sequence,omitempty"`
 	Timestamp   string `json:"timestamp"`
 	Payload     any    `json:"payload"`
 }

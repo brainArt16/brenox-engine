@@ -21,6 +21,7 @@ All outbound events use a standard envelope:
 | `workspace_id` | Workspace scope |
 | `channel_id` | Channel scope for delivery |
 | `event_id` | Unique ID for deduplication / tracing |
+| `sequence` | Monotonic per-channel counter for gap detection (Redis-backed when scaled) |
 | `timestamp` | UTC RFC3339Nano |
 | `payload` | Event-specific body |
 

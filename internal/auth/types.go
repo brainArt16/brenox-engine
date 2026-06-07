@@ -11,8 +11,10 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-
-	Email string `json:"email"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
+}
 
+type refreshRequest struct {
+	Token string `json:"token"`
 }

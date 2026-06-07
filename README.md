@@ -13,6 +13,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/WEBRTC.md](docs/WEBRTC.md) | Voice/video call signaling + TURN/STUN client config |
 | [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md) | SDK integration guide for WebRTC clients |
 | [docs/openapi.yaml](docs/openapi.yaml) | Public Developer API OpenAPI spec |
+| [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md) | SDK auth, WebSocket, reconnection guide |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
 
@@ -34,6 +35,7 @@ internal/
   calls/              Voice call rooms + WebRTC signaling
   apps/               Developer apps + API key management
   developerapi/       Public /v1 API for third-party integrations
+  users/               User profile API
   webhooks/           Webhook delivery dispatcher
   ratelimit/          API key rate limiting
   redis/              Redis client wrapper
@@ -89,6 +91,7 @@ All channel and message routes are scoped under a workspace.
 | GET | `/health` | No | DB + Redis health probe |
 | POST | `/auth/register` | No | Create account |
 | POST | `/auth/login` | No | Login, returns JWT |
+| POST | `/auth/refresh` | No | Refresh JWT (valid or recently expired token) |
 | POST | `/api/workspaces` | JWT | Create workspace |
 | GET | `/api/workspaces` | JWT | List user workspaces |
 | GET | `/api/workspaces/:workspace_id` | JWT | Workspace detail |
@@ -110,6 +113,8 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/notifications/read-all` | JWT | Mark all notifications read |
 | GET | `/api/presence` | JWT | Globally online users (status, last_seen) |
 | GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
+| GET | `/api/users/me` | JWT | Current user profile |
+| PATCH | `/api/users/me` | JWT | Update username |
 | PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |

@@ -33,6 +33,7 @@ import (
 	"github.com/brainart16/brenox/internal/ratelimit"
 	"github.com/brainart16/brenox/internal/webhooks"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
+	usersHandler "github.com/brainart16/brenox/internal/users"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
 )
 
@@ -65,6 +66,7 @@ func main() {
 	wsConfig := realtimeHandler.LoadConfig()
 
 	hub := realtimeHandler.NewHub(wsConfig)
+	hub.SetSequencer(realtimeHandler.NewSequencer(redisClient))
 	broker := realtimeHandler.NewBroker(redisClient, hub)
 	hub.SetBroker(broker)
 	go hub.Run()
@@ -84,6 +86,9 @@ func main() {
 
 	authService := authHandler.NewService(queries)
 	authHandlerInstance := authHandler.NewHandler(authService)
+
+	usersService := usersHandler.NewService(queries)
+	usersHandlerInstance := usersHandler.NewHandler(usersService)
 
 	workspacesService := workspacesHandler.NewService(queries, authzService)
 	workspacesService.SetInviteNotifier(notificationService)
@@ -126,12 +131,14 @@ func main() {
 	healthHandler := health.NewHandler(pool, redisClient)
 
 	router := gin.Default()
+	router.Use(middleware.CORSMiddleware(middleware.LoadCORSConfig()))
 
 	router.GET("/health", healthHandler.Check)
 
 	authRouter := router.Group("/auth")
 	authRouter.POST("/register", authHandlerInstance.Register)
 	authRouter.POST("/login", authHandlerInstance.Login)
+	authRouter.POST("/refresh", authHandlerInstance.Refresh)
 
 	api := router.Group("/api")
 	api.Use(middleware.AuthMiddleware())
@@ -164,6 +171,8 @@ func main() {
 	workspaceAPI.POST("/channels/:id/calls", callsHandlerInstance.InitiateCall)
 
 	api.GET("/presence", presenceHandler.GetGlobalPresence)
+	api.GET("/users/me", usersHandlerInstance.GetMe)
+	api.PATCH("/users/me", usersHandlerInstance.UpdateMe)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
 	api.GET("/ws", wsHandler.HandleWebSocket)
 

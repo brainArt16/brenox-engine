@@ -25,3 +25,9 @@ WHERE id = $1;
 SELECT *
 FROM users
 WHERE LOWER(username) = LOWER($1);
+
+-- name: UpdateUserProfile :one
+UPDATE users
+SET username = $2
+WHERE id = $1
+RETURNING *;

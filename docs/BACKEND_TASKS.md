@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 12 complete)
+> **Last updated:** 2026-06-06 (Phase 13 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -41,12 +41,12 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 10 | WebRTC — Voice | 🟢 Complete | 12 / 12 |
 | 11 | WebRTC — Video | 🟢 Complete | 8 / 8 |
 | 12 | Public Developer API | 🟢 Complete | 12 / 12 |
-| 13 | SDK Support Layer | 🔴 Not started | 0 / 8 |
+| 13 | SDK Support Layer | 🟢 Complete | 8 / 8 |
 | 14 | Production Readiness | 🔴 Not started | 0 / 18 |
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~84% (Phases 0–12 complete)
+**Overall backend completion:** ~89% (Phases 0–13 complete)
 
 ---
 
@@ -419,14 +419,14 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 13.1 | Token refresh endpoint — `POST /auth/refresh` | [ ] |
-| 13.2 | User profile endpoints — `GET/PATCH /api/users/me` | [ ] |
-| 13.3 | WebSocket reconnection + missed event strategy (document) | [ ] |
-| 13.4 | Server-sent event sequence numbers for gap detection | [ ] |
-| 13.5 | CORS configuration for browser SDK | [ ] |
-| 13.6 | SDK integration guide — `docs/SDK_INTEGRATION.md` | [ ] |
-| 13.7 | Sandbox/dev API keys for testing | [ ] |
-| 13.8 | Example curl/WebSocket flows in docs | [ ] |
+| 13.1 | Token refresh endpoint — `POST /auth/refresh` | [x] |
+| 13.2 | User profile endpoints — `GET/PATCH /api/users/me` | [x] |
+| 13.3 | WebSocket reconnection + missed event strategy (document) | [x] |
+| 13.4 | Server-sent event sequence numbers for gap detection | [x] |
+| 13.5 | CORS configuration for browser SDK | [x] |
+| 13.6 | SDK integration guide — `docs/SDK_INTEGRATION.md` | [x] |
+| 13.7 | Sandbox/dev API keys for testing | [x] |
+| 13.8 | Example curl/WebSocket flows in docs | [x] |
 
 ---
 

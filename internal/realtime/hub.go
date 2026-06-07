@@ -24,6 +24,7 @@ type Hub struct {
 	cfg Config
 	broker EventBroker
 	presence PresenceTracker
+	sequencer Sequencer
 
 	channels map[int64]map[*Client]bool
 
@@ -59,6 +60,10 @@ func (h *Hub) SetBroker(broker EventBroker) {
 	h.broker = broker
 }
 
+func (h *Hub) SetSequencer(sequencer Sequencer) {
+	h.sequencer = sequencer
+}
+
 func (h *Hub) CanConnect(userID int64, remoteIP string) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -76,6 +81,9 @@ func (h *Hub) CanConnect(userID int64, remoteIP string) bool {
 func (h *Hub) Publish(event Event) {
 	if event.EventID == "" {
 		event = NewOutboundEvent(event.Type, event.WorkspaceID, event.ChannelID, event.Payload)
+	}
+	if event.Sequence == 0 && event.ChannelID > 0 && h.sequencer != nil {
+		event.Sequence = h.sequencer.Next(context.Background(), event.ChannelID)
 	}
 
 	if h.broker != nil {

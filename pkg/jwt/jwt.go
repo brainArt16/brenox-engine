@@ -1,93 +1,115 @@
 package jwt
 
 import (
+	"errors"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	jwtlib "github.com/golang-jwt/jwt/v5"
 )
 
+var ErrTokenInvalid = errors.New("invalid token")
+
 // CustomClaims defines data stored inside JWT token.
 type CustomClaims struct {
-
-	// User ID embedded in token.
 	UserID int64 `json:"user_id"`
-
-	/*
-		RegisteredClaims are standard JWT fields:
-		- expiration
-		- issued_at
-		- issuer
-	*/
-
 	jwtlib.RegisteredClaims
 }
 
+func tokenSecret() []byte {
+	return []byte(os.Getenv("JWT_SECRET"))
+}
 
-// GenerateToken creates signed JWT token.
-func GenerateToken(
-	userID int64,
-) (string, error) {
+func accessTokenTTL() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("JWT_ACCESS_TTL_HOURS"))
+	if raw == "" {
+		return 24 * time.Hour
+	}
+	hours, err := strconv.Atoi(raw)
+	if err != nil || hours <= 0 {
+		return 24 * time.Hour
+	}
+	return time.Duration(hours) * time.Hour
+}
 
+func refreshGracePeriod() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("JWT_REFRESH_GRACE_HOURS"))
+	if raw == "" {
+		return 7 * 24 * time.Hour
+	}
+	hours, err := strconv.Atoi(raw)
+	if err != nil || hours <= 0 {
+		return 7 * 24 * time.Hour
+	}
+	return time.Duration(hours) * time.Hour
+}
 
-	// Create claims payload.
+// GenerateToken creates a signed access JWT.
+func GenerateToken(userID int64) (string, error) {
 	claims := CustomClaims{
 		UserID: userID,
-
 		RegisteredClaims: jwtlib.RegisteredClaims{
-
-			// 	Token expiration. 24 Hours
-			ExpiresAt: jwtlib.NewNumericDate(
-				time.Now().Add(24 * time.Hour),
-			),
-
-			// 	Token creation timestamp.
-			IssuedAt: jwtlib.NewNumericDate(
-				time.Now(),
-			),
+			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(accessTokenTTL())),
+			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
 		},
 	}
 
-	// Create token object.
-	token := jwtlib.NewWithClaims(
-		jwtlib.SigningMethodHS256,
-		claims,
-	)
-
-	// Sign token with secret key.
-	return token.SignedString(
-		[]byte(os.Getenv("JWT_SECRET")),
-	)
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
+	return token.SignedString(tokenSecret())
 }
 
+// ValidateToken parses and validates a non-expired token.
+func ValidateToken(tokenString string) (*CustomClaims, error) {
+	claims, err := parseClaims(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.ExpiresAt != nil && claims.ExpiresAt.Before(time.Now()) {
+		return nil, jwtlib.ErrTokenExpired
+	}
+	return claims, nil
+}
 
-// ValidateToken parses and validates token.
-func ValidateToken(
-	tokenString string,
-) (*CustomClaims, error) {
-
-	token, err := jwtlib.ParseWithClaims(
-		tokenString,
-		&CustomClaims{},
-
-		func(token *jwtlib.Token) (interface{}, error) {
-
-			return []byte(
-				os.Getenv("JWT_SECRET"),
-			), nil
-		},
-	)
-
+// ValidateTokenForRefresh accepts valid or recently expired tokens for refresh.
+func ValidateTokenForRefresh(tokenString string) (*CustomClaims, error) {
+	claims, err := parseClaims(tokenString)
 	if err != nil {
 		return nil, err
 	}
 
-	// Type assertion.Convert generic interface into CustomClaims type.
-	claims, ok := token.Claims.(*CustomClaims)
-
-	if !ok || !token.Valid {
-		return nil, err
+	if claims.ExpiresAt == nil {
+		return claims, nil
 	}
 
+	expiredFor := time.Since(claims.ExpiresAt.Time)
+	if expiredFor <= 0 {
+		return claims, nil
+	}
+	if expiredFor > refreshGracePeriod() {
+		return nil, ErrTokenInvalid
+	}
+	return claims, nil
+}
+
+func parseClaims(tokenString string) (*CustomClaims, error) {
+	claims := &CustomClaims{}
+	token, err := jwtlib.ParseWithClaims(
+		tokenString,
+		claims,
+		func(token *jwtlib.Token) (any, error) {
+			return tokenSecret(), nil
+		},
+	)
+	if err != nil {
+		if errors.Is(err, jwtlib.ErrTokenExpired) {
+			return claims, nil
+		}
+		return nil, err
+	}
+	if !token.Valid {
+		return nil, ErrTokenInvalid
+	}
 	return claims, nil
 }

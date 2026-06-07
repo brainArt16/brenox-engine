@@ -126,3 +126,16 @@ func (s *Service) Login(
 
 	return token, nil
 }
+
+func (s *Service) Refresh(ctx context.Context, tokenString string) (string, error) {
+	claims, err := jwt.ValidateTokenForRefresh(tokenString)
+	if err != nil {
+		return "", errors.New("invalid or expired token")
+	}
+
+	if _, err := s.queries.GetUserByID(ctx, claims.UserID); err != nil {
+		return "", errors.New("invalid or expired token")
+	}
+
+	return jwt.GenerateToken(claims.UserID)
+}
