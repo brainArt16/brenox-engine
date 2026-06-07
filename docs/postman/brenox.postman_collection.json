@@ -11,7 +11,9 @@
     { "key": "workspaceId", "value": "1" },
     { "key": "channelId", "value": "1" },
     { "key": "messageId", "value": "1" },
-    { "key": "callId", "value": "1" }
+    { "key": "callId", "value": "1" },
+    { "key": "appId", "value": "1" },
+    { "key": "apiKey", "value": "" }
   ],
   "item": [
     {
@@ -521,6 +523,133 @@
             },
             "url": "{{baseUrl}}/api/users/me/status",
             "description": "Status: online, away, or offline. Broadcasts presence.status to active channels."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Developer Apps",
+      "item": [
+        {
+          "name": "Create App",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) {",
+                  "  pm.collectionVariables.set('appId', json.id);",
+                  "  pm.environment.set('appId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Integration\",\n  \"slug\": \"my-integration\"\n}" },
+            "url": "{{baseUrl}}/api/apps",
+            "description": "Creates app + dedicated workspace tenant boundary."
+          }
+        },
+        {
+          "name": "Create API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.secret) {",
+                  "  pm.collectionVariables.set('apiKey', json.secret);",
+                  "  pm.environment.set('apiKey', json.secret);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"production\",\n  \"sandbox\": false\n}" },
+            "url": "{{baseUrl}}/api/apps/{{appId}}/keys",
+            "description": "Secret shown once. Use bx_live_... or bx_test_... for /v1 routes."
+          }
+        },
+        {
+          "name": "Create Webhook",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/webhooks/brenox\",\n  \"events\": [\"message.created\", \"user.provisioned\", \"channel.created\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/apps/{{appId}}/webhooks"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public API v1",
+      "item": [
+        {
+          "name": "Provision User",
+          "request": {
+            "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "provision-user-1" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"external_id\": \"user-42\",\n  \"username\": \"alice\"\n}" },
+            "url": "{{baseUrl}}/v1/users"
+          }
+        },
+        {
+          "name": "Create Channel",
+          "request": {
+            "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"general\"\n}" },
+            "url": "{{baseUrl}}/v1/channels"
+          }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel_id\": {{channelId}},\n  \"external_id\": \"user-42\",\n  \"content\": \"Hello from the public API\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/messages"
+          }
+        },
+        {
+          "name": "List Messages",
+          "request": {
+            "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/v1/messages?channel_id={{channelId}}&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "messages"],
+              "query": [
+                { "key": "channel_id", "value": "{{channelId}}" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
           }
         }
       ]

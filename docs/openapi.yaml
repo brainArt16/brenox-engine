@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: Brenox Developer API
+  version: 1.0.0
+  description: |
+    Public HTTP API for third-party integrations. Authenticate with an API key
+    via `Authorization: Bearer bx_live_...` or `X-API-Key` header.
+
+    Create apps and API keys via the JWT-protected management routes under `/api/apps`.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /v1/users:
+    post:
+      summary: Provision user
+      description: Creates or returns an app-scoped user by external_id.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProvisionUserRequest'
+      responses:
+        '201':
+          description: User provisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /v1/channels:
+    post:
+      summary: Create channel
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChannelRequest'
+      responses:
+        '201':
+          description: Channel created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelResponse'
+        '409':
+          $ref: '#/components/responses/Error'
+
+  /v1/messages:
+    post:
+      summary: Send message
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+    get:
+      summary: List messages
+      parameters:
+        - name: channel_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Message history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MessageListItem'
+
+  /api/apps:
+    post:
+      summary: Create app (JWT)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                slug:
+                  type: string
+      responses:
+        '201':
+          description: App created with dedicated workspace
+
+  /api/apps/{app_id}/keys:
+    post:
+      summary: Create API key (JWT)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: app_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                sandbox:
+                  type: boolean
+                  default: false
+      responses:
+        '201':
+          description: API key created; secret shown once
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Unique key for safe retries on write endpoints
+
+  schemas:
+    ProvisionUserRequest:
+      type: object
+      required: [external_id]
+      properties:
+        external_id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+
+    CreateChannelRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        is_read_only:
+          type: boolean
+          default: false
+
+    SendMessageRequest:
+      type: object
+      required: [channel_id, content]
+      properties:
+        channel_id:
+          type: integer
+          format: int64
+        user_id:
+          type: integer
+          format: int64
+        external_id:
+          type: string
+        content:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        external_id:
+          type: string
+        email:
+          type: string
+        username:
+          type: string
+
+    ChannelResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        workspace_id:
+          type: integer
+        is_read_only:
+          type: boolean
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        channel_id:
+          type: integer
+        sender_id:
+          type: integer
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    MessageListItem:
+      allOf:
+        - $ref: '#/components/schemas/MessageResponse'
+        - type: object
+          properties:
+            username:
+              type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

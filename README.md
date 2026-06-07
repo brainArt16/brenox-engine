@@ -12,6 +12,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
 | [docs/WEBRTC.md](docs/WEBRTC.md) | Voice/video call signaling + TURN/STUN client config |
 | [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md) | SDK integration guide for WebRTC clients |
+| [docs/openapi.yaml](docs/openapi.yaml) | Public Developer API OpenAPI spec |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
 
@@ -31,6 +32,10 @@ internal/
   storage/            S3/MinIO object storage
   attachments/        File uploads + message attachments
   calls/              Voice call rooms + WebRTC signaling
+  apps/               Developer apps + API key management
+  developerapi/       Public /v1 API for third-party integrations
+  webhooks/           Webhook delivery dispatcher
+  ratelimit/          API key rate limiting
   redis/              Redis client wrapper
   health/             Health check handler
   database/           Postgres pool
@@ -109,11 +114,20 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |
+| POST | `/api/apps` | JWT | Create developer app (dedicated workspace) |
+| POST | `/api/apps/:app_id/keys` | JWT | Create API key (secret shown once) |
+| POST | `/api/apps/:app_id/webhooks` | JWT | Register webhook endpoint |
+| POST | `/v1/users` | API key | Provision app-scoped user |
+| POST | `/v1/channels` | API key | Create channel in app workspace |
+| POST | `/v1/messages` | API key | Send message |
+| GET | `/v1/messages?channel_id=` | API key | List channel messages |
 | GET | `/api/ws?workspace_id=&channel_id=` | JWT (header or `?token=`) | WebSocket upgrade |
 
 WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Graceful shutdown closes active WebSocket connections on SIGTERM.
 
 Voice and video call signaling (`call.offer`, `call.answer`, `call.ice`, `call.video.*`, etc.) is sent over the channel WebSocket. See [docs/WEBRTC.md](docs/WEBRTC.md) and [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md).
+
+**Developer API:** Authenticate with `Authorization: Bearer bx_live_...` or `X-API-Key`. Create apps/keys via JWT routes. See [docs/openapi.yaml](docs/openapi.yaml).
 
 Channel names are unique **per workspace**.
 

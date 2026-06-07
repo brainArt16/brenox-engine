@@ -26,8 +26,12 @@ import (
 	"github.com/brainart16/brenox/internal/authz"
 	channelsHandler "github.com/brainart16/brenox/internal/channels"
 	chatHandler "github.com/brainart16/brenox/internal/chat"
+	appsHandler "github.com/brainart16/brenox/internal/apps"
 	callsHandler "github.com/brainart16/brenox/internal/calls"
+	"github.com/brainart16/brenox/internal/developerapi"
 	middleware "github.com/brainart16/brenox/internal/middleware"
+	"github.com/brainart16/brenox/internal/ratelimit"
+	"github.com/brainart16/brenox/internal/webhooks"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
 )
@@ -111,6 +115,13 @@ func main() {
 	)
 	callsHandlerInstance := callsHandler.NewHandler(callsService)
 
+	appsService := appsHandler.NewService(queries)
+	appsHandlerInstance := appsHandler.NewHandler(appsService)
+	webhookDispatcher := webhooks.NewDispatcher(queries)
+	devAPIService := developerapi.NewService(queries, realtimeHandler.NewChatBroadcaster(hub), webhookDispatcher)
+	devAPIHandler := developerapi.NewHandler(devAPIService)
+	rateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadConfig())
+
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
 
@@ -155,6 +166,22 @@ func main() {
 	api.GET("/presence", presenceHandler.GetGlobalPresence)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
 	api.GET("/ws", wsHandler.HandleWebSocket)
+
+	api.POST("/apps", appsHandlerInstance.CreateApp)
+	api.GET("/apps", appsHandlerInstance.ListApps)
+	api.POST("/apps/:app_id/keys", appsHandlerInstance.CreateAPIKey)
+	api.GET("/apps/:app_id/keys", appsHandlerInstance.ListAPIKeys)
+	api.DELETE("/apps/:app_id/keys/:key_id", appsHandlerInstance.RevokeAPIKey)
+	api.POST("/apps/:app_id/webhooks", appsHandlerInstance.CreateWebhook)
+
+	v1 := router.Group("/v1")
+	v1.Use(middleware.APIKeyMiddleware(appsService))
+	v1.Use(middleware.RateLimitMiddleware(rateLimiter))
+	v1.Use(middleware.IdempotencyMiddleware(devAPIService))
+	v1.POST("/users", devAPIHandler.ProvisionUser)
+	v1.POST("/channels", devAPIHandler.CreateChannel)
+	v1.POST("/messages", devAPIHandler.SendMessage)
+	v1.GET("/messages", devAPIHandler.ListMessages)
 
 	port := os.Getenv("PORT")
 	if port == "" {

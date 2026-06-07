@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS webhooks;
+DROP TABLE IF EXISTS app_users;
+DROP TABLE IF EXISTS api_keys;
+DROP TABLE IF EXISTS apps;

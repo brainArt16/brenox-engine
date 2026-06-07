@@ -8,6 +8,35 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ApiKey struct {
+	ID         int64
+	AppID      int64
+	Name       string
+	KeyPrefix  string
+	KeyHash    string
+	IsSandbox  bool
+	CreatedAt  pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+	LastUsedAt pgtype.Timestamptz
+}
+
+type App struct {
+	ID          int64
+	Name        string
+	Slug        string
+	WorkspaceID int64
+	OwnerID     int64
+	CreatedAt   pgtype.Timestamptz
+}
+
+type AppUser struct {
+	ID         int64
+	AppID      int64
+	UserID     int64
+	ExternalID string
+	CreatedAt  pgtype.Timestamptz
+}
+
 type Attachment struct {
 	ID         int64
 	MessageID  int64
@@ -73,6 +102,16 @@ type ChannelRole struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type IdempotencyKey struct {
+	ID             int64
+	AppID          int64
+	IdempotencyKey string
+	Endpoint       string
+	StatusCode     int32
+	ResponseBody   []byte
+	CreatedAt      pgtype.Timestamptz
+}
+
 type Message struct {
 	ID        int64
 	ChannelID int64
@@ -98,6 +137,16 @@ type User struct {
 	Username     string
 	PasswordHash string
 	CreatedAt    pgtype.Timestamptz
+}
+
+type Webhook struct {
+	ID         int64
+	AppID      int64
+	Url        string
+	Events     []string
+	Secret     string
+	DisabledAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
 }
 
 type Workspace struct {

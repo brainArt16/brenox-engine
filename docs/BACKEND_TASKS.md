@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 11 complete)
+> **Last updated:** 2026-06-06 (Phase 12 complete)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -40,13 +40,13 @@ Three agents keep docs in sync with code. Config: `AGENTS.md`, `.cursor/rules/`,
 | 9 | File Attachments | 🟢 Complete | 10 / 10 |
 | 10 | WebRTC — Voice | 🟢 Complete | 12 / 12 |
 | 11 | WebRTC — Video | 🟢 Complete | 8 / 8 |
-| 12 | Public Developer API | 🔴 Not started | 0 / 12 |
+| 12 | Public Developer API | 🟢 Complete | 12 / 12 |
 | 13 | SDK Support Layer | 🔴 Not started | 0 / 8 |
 | 14 | Production Readiness | 🔴 Not started | 0 / 18 |
 
 **Legend:** 🔴 Not started · 🟡 In progress · 🟢 Complete
 
-**Overall backend completion:** ~76% (Phases 0–11 complete)
+**Overall backend completion:** ~84% (Phases 0–12 complete)
 
 ---
 
@@ -396,18 +396,18 @@ messages
 
 | # | Task | Status |
 |---|------|--------|
-| 12.1 | Migration: `apps`, `api_keys` tables | [ ] |
-| 12.2 | API key generation, hashing, revocation | [ ] |
-| 12.3 | API key auth middleware (separate from user JWT) | [ ] |
-| 12.4 | Versioned router: `/v1/...` | [ ] |
-| 12.5 | `POST /v1/users` — provision user for app | [ ] |
-| 12.6 | `POST /v1/channels` | [ ] |
-| 12.7 | `POST /v1/messages` | [ ] |
-| 12.8 | `GET /v1/messages` | [ ] |
-| 12.9 | App-scoped workspaces (each app = tenant boundary) | [ ] |
-| 12.10 | Webhook delivery system (optional: `webhooks` table + dispatcher) | [ ] |
-| 12.11 | Idempotency-Key header support on write endpoints | [ ] |
-| 12.12 | OpenAPI spec generation — `docs/openapi.yaml` | [ ] |
+| 12.1 | Migration: `apps`, `api_keys` tables | [x] |
+| 12.2 | API key generation, hashing, revocation | [x] |
+| 12.3 | API key auth middleware (separate from user JWT) | [x] |
+| 12.4 | Versioned router: `/v1/...` | [x] |
+| 12.5 | `POST /v1/users` — provision user for app | [x] |
+| 12.6 | `POST /v1/channels` | [x] |
+| 12.7 | `POST /v1/messages` | [x] |
+| 12.8 | `GET /v1/messages` | [x] |
+| 12.9 | App-scoped workspaces (each app = tenant boundary) | [x] |
+| 12.10 | Webhook delivery system (optional: `webhooks` table + dispatcher) | [x] |
+| 12.11 | Idempotency-Key header support on write endpoints | [x] |
+| 12.12 | OpenAPI spec generation — `docs/openapi.yaml` | [x] |
 
 ---
 
