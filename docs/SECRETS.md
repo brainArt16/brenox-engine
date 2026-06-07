@@ -34,6 +34,17 @@ Brenox never commits secrets to the repository. All sensitive values are supplie
 - Use default `JWT_SECRET=dev-secret-change-me` in production
 - Share sandbox (`bx_test_`) keys in production builds
 
+## Docker / Compose
+
+| File | Purpose |
+|------|---------|
+| `.env.docker.example` | Template for `docker compose` — copy to `.env` |
+| `.env` | **Gitignored** — real secrets for local stack or deploy |
+| `docker-compose.yaml` | References `${VAR}` and `env_file: .env` — no embedded passwords |
+| `Dockerfile` | Builds binary only; no secrets baked in |
+
+For cloud production, inject env vars from your secret store (K8s secrets, AWS Secrets Manager, etc.) instead of a `.env` file on disk.
+
 ## Verification
 
 ```bash

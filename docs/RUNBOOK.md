@@ -7,9 +7,13 @@ Operations guide for deploy, rollback, and incident response.
 ### Docker Compose (staging / local prod-like)
 
 ```bash
+cp .env.docker.example .env
+# Edit .env — set POSTGRES_PASSWORD, JWT_SECRET, MINIO_*, S3_* (see docs/SECRETS.md)
 docker compose up -d --build
 curl http://localhost:8080/health
 ```
+
+Secrets live in `.env` (gitignored), not in `docker-compose.yaml` or the image. Only port **8080** (API) is exposed; Postgres, Redis, and MinIO are internal to the compose network.
 
 Stack: API + Postgres + Redis + MinIO + migrate job. See [docker-compose.yaml](../docker-compose.yaml).
 

@@ -23,6 +23,7 @@ db-start:
 	docker compose -f docker-compose.dev.yaml up -d
 
 stack:
+	@test -f .env || (echo "Copy .env.docker.example to .env and set secrets first" && exit 1)
 	docker compose up -d --build
 
 sqlc:

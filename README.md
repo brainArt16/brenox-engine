@@ -69,11 +69,14 @@ make db-start
 make migrate
 ```
 
-Or run the full production-like stack (API + Postgres + Redis + MinIO):
+Or run the production-like stack (API + Postgres + Redis + MinIO):
 
 ```bash
+cp .env.docker.example .env   # set strong secrets — never commit .env
 make stack
 ```
+
+Only the API port is published; database, Redis, and MinIO stay on the internal Docker network.
 
 3. Run the API:
 
