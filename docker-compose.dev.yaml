@@ -1,24 +1,29 @@
+# Local development — all services in Docker (API + Postgres + Redis + MinIO + migrations).
+# Default credentials are fine for dev only; override via `.env` (see `.env.example`).
+#
+#   make dev-up
 
 services:
   postgres:
     image: postgres:16-alpine
     container_name: brenox_postgres
-
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: brenox
-
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-brenox}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-brenox}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     container_name: brenox_redis
-
     ports:
-      - "6379:6379"
-
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -29,11 +34,60 @@ services:
     image: minio/minio:latest
     container_name: brenox_minio
     command: server /data --console-address ":9001"
-
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    container_name: brenox_migrate
+    volumes:
+      - ./sql/migrations:/migrations
+    entrypoint: >
+      sh -c 'migrate -path=/migrations
+      -database="postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-brenox}?sslmode=disable"
+      up'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: .
+    container_name: brenox_api
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT: "8080"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:-brenox}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_ACCESS_TTL_HOURS: ${JWT_ACCESS_TTL_HOURS:-24}
+      JWT_REFRESH_GRACE_HOURS: ${JWT_REFRESH_GRACE_HOURS:-168}
+      REDIS_URL: redis://redis:6379/0
+      PRESENCE_TTL_SECONDS: ${PRESENCE_TTL_SECONDS:-120}
+      S3_ENDPOINT: minio:9000
+      S3_BUCKET: ${S3_BUCKET:-brenox}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      S3_USE_SSL: "false"
+      S3_REGION: ${S3_REGION:-us-east-1}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      WS_ALLOWED_ORIGINS: ${WS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      WS_MAX_CONNECTIONS_PER_USER: ${WS_MAX_CONNECTIONS_PER_USER:-5}
+      WS_MAX_CONNECTIONS_PER_IP: ${WS_MAX_CONNECTIONS_PER_IP:-20}
+      CALL_MAX_PARTICIPANTS: ${CALL_MAX_PARTICIPANTS:-25}
+      API_RATE_LIMIT_PER_MINUTE: ${API_RATE_LIMIT_PER_MINUTE:-120}
+      HTTP_RATE_LIMIT_PER_IP: ${HTTP_RATE_LIMIT_PER_IP:-300}
+      MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-1048576}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy

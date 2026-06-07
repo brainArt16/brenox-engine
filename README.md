@@ -58,18 +58,34 @@ docs/
 
 ## Quick start
 
-Prerequisites: Go 1.20+, Docker, Make.
+Prerequisites: Docker, Make (Go optional if you only use Docker).
 
-1. Copy `.env.example` to `.env` and set `DB_*`, `JWT_SECRET`, `REDIS_URL`, `S3_*`, and optional WebSocket vars.
-
-2. Start database and run migrations:
+### Development (all services in Docker)
 
 ```bash
-make db-start
-make migrate
+make dev-up          # API + Postgres + Redis + MinIO + migrations
+curl http://localhost:8080/health
 ```
 
-Or run the production-like stack (API + Postgres + Redis + MinIO):
+Services: API `:8080`, Postgres `:5432`, Redis `:6379`, MinIO `:9000` (console `:9001`).  
+Default dev credentials — override via `.env` (copy from `.env.example`).
+
+```bash
+make dev-logs        # tail API logs
+make dev-down        # stop stack
+make migrate-dev     # re-run migrations after new migration files
+```
+
+### Local API process (services still in Docker)
+
+```bash
+make dev-up          # starts infra + can skip rebuilding api if down api container
+docker compose -f docker-compose.dev.yaml stop api
+cp .env.example .env
+make run
+```
+
+### Production-like stack
 
 ```bash
 cp .env.docker.example .env   # set strong secrets — never commit .env
@@ -78,22 +94,21 @@ make stack
 
 Only the API port is published; database, Redis, and MinIO stay on the internal Docker network.
 
-3. Run the API:
+### Tests
 
 ```bash
-make run
-make test   # authz unit tests
+make test
 ```
 
-Server listens on `:8080` (override with `PORT`). Set `REDIS_URL` for cross-instance realtime; see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+API listens on `:8080`. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for multi-instance Redis setup.
 
 ### Existing databases
 
-Migration `000004_add_workspaces` backfills a **Default Workspace** per channel owner. For a clean slate in dev, reset the database:
+Migration `000004_add_workspaces` backfills a **Default Workspace** per channel owner. For a clean slate in dev:
 
 ```bash
 docker compose -f docker-compose.dev.yaml down -v
-make db-start && make migrate
+make dev-up
 ```
 
 ## API overview

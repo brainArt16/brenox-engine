@@ -1,4 +1,4 @@
-.PHONY: migration migrate run db-start sqlc build test test-integration test-integration-db
+.PHONY: migration migrate migrate-dev run dev-up dev-down dev-logs db-start sqlc build test test-integration test-integration-db
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -12,15 +12,29 @@ migration:
 	echo "Creating migration $$NAME"; \
 	migrate create -ext sql -dir sql/migrations -seq $$NAME
 
-
+# Run migrations against dev Postgres (host port 5432)
 migrate:
 	migrate -path sql/migrations -database "postgres://postgres:postgres@localhost:5432/brenox?sslmode=disable" up
+
+# Run migrations via Docker (uses internal network)
+migrate-dev:
+	docker compose -f docker-compose.dev.yaml run --rm migrate
 
 run:
 	go run cmd/api/main.go
 
-db-start:
-	docker compose -f docker-compose.dev.yaml up -d
+# Full dev stack: API + Postgres + Redis + MinIO + migrations
+dev-up:
+	docker compose -f docker-compose.dev.yaml up -d --build
+
+dev-down:
+	docker compose -f docker-compose.dev.yaml down
+
+dev-logs:
+	docker compose -f docker-compose.dev.yaml logs -f api
+
+# Alias for dev-up
+db-start: dev-up
 
 stack:
 	@test -f .env || (echo "Copy .env.docker.example to .env and set secrets first" && exit 1)

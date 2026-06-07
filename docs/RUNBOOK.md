@@ -8,7 +8,7 @@ Operations guide for deploy, rollback, and incident response.
 
 ```bash
 cp .env.docker.example .env
-# Edit .env — set POSTGRES_PASSWORD, JWT_SECRET, MINIO_*, S3_* (see docs/SECRETS.md)
+# Edit .env — set DB_PASSWORD, JWT_SECRET, MINIO_* (see docs/SECRETS.md)
 docker compose up -d --build
 curl http://localhost:8080/health
 ```

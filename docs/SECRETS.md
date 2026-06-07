@@ -8,6 +8,7 @@ Brenox never commits secrets to the repository. All sensitive values are supplie
 |----------|-------------|
 | `JWT_SECRET` | HS256 signing key — **min 32 random bytes in production** |
 | `DB_PASSWORD` | PostgreSQL password |
+| `MINIO_ROOT_PASSWORD` | MinIO admin password (dev compose) |
 | `S3_SECRET_KEY` | Object storage secret (MinIO/S3) |
 
 ## Recommended secret store
