@@ -1,4 +1,5 @@
 .PHONY: migration migrate migrate-dev run dev-up dev-down dev-logs db-start sqlc build test test-integration test-integration-db
+.PHONY: k8s-build k8s-load-kind k8s-dev-up k8s-dev-down k8s-migrate k8s-port-forward k8s-ingress-kind
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -55,3 +56,40 @@ test-integration:
 test-integration-db:
 	DB_HOST=localhost DB_PORT=5432 DB_USER=postgres DB_PASSWORD=postgres DB_NAME=brenox JWT_SECRET=test \
 	go test ./internal/integration/ -count=1
+
+# --- Kubernetes (see docs/KUBERNETES.md) ---
+
+K8S_NAMESPACE ?= brenox
+K8S_OVERLAY ?= dev
+KIND_CLUSTER ?= brenox
+
+k8s-build:
+	docker build -t brenox-api:dev .
+	docker build -f deploy/Dockerfile.migrate -t brenox-migrate:dev .
+
+k8s-load-kind:
+	kind load docker-image brenox-api:dev --name $(KIND_CLUSTER)
+	kind load docker-image brenox-migrate:dev --name $(KIND_CLUSTER)
+
+k8s-dev-up: k8s-build
+	kubectl apply -k deploy/overlays/$(K8S_OVERLAY)
+	$(MAKE) k8s-migrate K8S_OVERLAY=$(K8S_OVERLAY)
+
+k8s-migrate:
+ifeq ($(K8S_OVERLAY),dev)
+	kubectl wait --for=condition=available deployment/postgres -n $(K8S_NAMESPACE) --timeout=120s
+endif
+	kubectl delete job brenox-migrate -n $(K8S_NAMESPACE) --ignore-not-found
+	kubectl apply -k deploy/overlays/$(K8S_OVERLAY)
+	kubectl wait --for=condition=complete job/brenox-migrate -n $(K8S_NAMESPACE) --timeout=180s
+
+k8s-dev-down:
+	kubectl delete -k deploy/overlays/$(K8S_OVERLAY) --ignore-not-found
+
+k8s-port-forward:
+	kubectl port-forward -n $(K8S_NAMESPACE) svc/brenox-api 8080:8080
+
+k8s-ingress-kind:
+	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+	kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s
+	@echo "Add to /etc/hosts: 127.0.0.1 brenox.local"

@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brenox-api
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/brainart16/brenox/brenox-api:latest

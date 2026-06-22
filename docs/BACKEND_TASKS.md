@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-06 (Phase 14 complete)
+> **Last updated:** 2026-06-22 (Kubernetes deploy scaffold)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -77,6 +77,7 @@ These exist in the repo today. Do not re-implement; extend or fix as noted.
 - [x] WebSocket hub — `GET /api/ws?channel_id=` (in-memory, single node)
 - [x] WebSocket event model (`internal/realtime/events.go`)
 - [x] Docker Compose, Makefile (`sqlc`, `build`, `migrate`), `.env.example`
+- [x] Kubernetes manifests — `deploy/` (Kustomize dev + prod overlays), `docs/KUBERNETES.md`
 - [x] Presence counting + `GET /api/presence`
 - [x] `chat.Service` — send/list messages with membership checks
 - [x] Message REST APIs — `POST/GET /api/channels/:id/messages`
@@ -552,6 +553,8 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-06-22 | K8s Ingress (dev/prod), GHCR image workflow (`images.yml`), prod overlay wired to `ghcr.io/brainart16/brenox/*` |
+| 2026-06-22 | Kubernetes deploy scaffold: `deploy/` Kustomize overlays (dev/prod), migrate image, `docs/KUBERNETES.md`, Makefile `k8s-*` targets |
 | 2026-06-06 | Phase 4 complete: RBAC, member admin APIs, read-only channels, authz tests |
 | 2026-06-06 | Phase 3 complete: workspaces, workspace-scoped routes, migration 000004 |
 | 2026-06-06 | Phase 2 complete: join/leave APIs, member events, owner-leave policy |

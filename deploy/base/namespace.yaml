@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brenox
+  labels:
+    app.kubernetes.io/name: brenox
+    app.kubernetes.io/part-of: brenox-engine

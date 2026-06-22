@@ -16,6 +16,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md) | SDK auth, WebSocket, reconnection guide |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Multi-instance topology, Redis, load balancer |
+| [docs/KUBERNETES.md](docs/KUBERNETES.md) | Kubernetes deploy (Kustomize overlays) |
 | [docs/RUNBOOK.md](docs/RUNBOOK.md) | Deploy, rollback, incident response |
 | [docs/SECRETS.md](docs/SECRETS.md) | Secrets management |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security review notes |
@@ -24,36 +25,55 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 ## Repo layout
 
 ```text
-cmd/api/              Application entrypoint
-internal/
-  auth/               Registration, login, JWT
-  authz/              Role-based permission checks
-  workspaces/         Workspace CRUD + member admin
-  channels/           Channel CRUD (workspace-scoped)
-  chat/               Message persistence
-  realtime/           WebSocket hub, Redis broker
-  presence/           Redis-backed presence store + API
-  notifications/      Notification persistence + dispatch
-  storage/            S3/MinIO object storage
-  attachments/        File uploads + message attachments
-  calls/              Voice call rooms + WebRTC signaling
-  apps/               Developer apps + API key management
-  developerapi/       Public /v1 API for third-party integrations
-  users/               User profile API
-  webhooks/           Webhook delivery dispatcher
-  ratelimit/          API key rate limiting
-  redis/              Redis client wrapper
-  health/             Health check handler
-  database/           Postgres pool
-  metrics/             Prometheus metrics
-  middleware/          Auth, CORS, rate limits, audit, security headers
-pkg/jwt/              JWT helpers
-sql/
-  migrations/         Schema migrations
-  queries/            sqlc query definitions
-docs/
-  BACKEND_TASKS.md    Task tracker
-  postman/            API collection
+brenox-engine/
+├── cmd/
+│   └── api/                        # Application entrypoint
+├── internal/
+│   ├── auth/                       # Registration, login, JWT
+│   ├── authz/                      # Role-based permission checks
+│   ├── workspaces/                 # Workspace CRUD + member admin
+│   ├── channels/                   # Channel CRUD (workspace-scoped)
+│   ├── chat/                       # Message persistence
+│   ├── realtime/                   # WebSocket hub, Redis broker
+│   ├── presence/                   # Redis-backed presence store + API
+│   ├── notifications/              # Notification persistence + dispatch
+│   ├── storage/                    # S3/MinIO object storage
+│   ├── attachments/                # File uploads + message attachments
+│   ├── calls/                      # Voice/video call rooms + WebRTC signaling
+│   ├── apps/                       # Developer apps + API key management
+│   ├── developerapi/               # Public /v1 API for third-party integrations
+│   ├── users/                      # User profile API
+│   ├── webhooks/                   # Webhook delivery dispatcher
+│   ├── ratelimit/                  # API key rate limiting
+│   ├── redis/                      # Redis client wrapper
+│   ├── health/                     # Health check handler
+│   ├── database/                   # Postgres pool
+│   ├── db/                         # sqlc-generated queries
+│   ├── metrics/                    # Prometheus metrics
+│   └── middleware/                 # Auth, CORS, rate limits, audit, security headers
+├── pkg/
+│   └── jwt/                        # JWT helpers
+├── sql/
+│   ├── migrations/                 # Schema migrations
+│   └── queries/                    # sqlc query definitions
+├── deploy/                         # Kubernetes manifests (Kustomize)
+│   ├── base/                       # API Deployment, Service, migrate Job
+│   ├── overlays/
+│   │   ├── dev/                    # In-cluster Postgres, Redis, MinIO
+│   │   └── prod/                   # Managed DB/Redis/S3 + Ingress
+│   └── Dockerfile.migrate          # Migrate image (bundles sql/migrations)
+├── docs/
+│   ├── BACKEND_TASKS.md            # Task tracker
+│   ├── KUBERNETES.md               # K8s deploy guide
+│   ├── postman/                    # API collection
+│   └── …                           # WebSocket, WebRTC, OpenAPI, runbooks
+├── .github/
+│   └── workflows/                  # CI + container image builds (GHCR)
+├── Dockerfile                      # API image
+├── docker-compose.yaml             # Production-like stack
+├── docker-compose.dev.yaml         # Local dev stack
+├── Makefile
+└── sqlc.yaml
 ```
 
 ## Quick start
@@ -93,6 +113,16 @@ make stack
 ```
 
 Only the API port is published; database, Redis, and MinIO stay on the internal Docker network.
+
+### Kubernetes (local cluster)
+
+```bash
+kind create cluster --name brenox
+make k8s-build k8s-load-kind k8s-dev-up
+curl http://localhost:30080/health
+```
+
+See [docs/KUBERNETES.md](docs/KUBERNETES.md) and [deploy/](deploy/) for overlays, production setup, and migrations.
 
 ### Tests
 

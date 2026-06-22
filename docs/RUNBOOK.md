@@ -17,6 +17,15 @@ Secrets live in `.env` (gitignored), not in `docker-compose.yaml` or the image. 
 
 Stack: API + Postgres + Redis + MinIO + migrate job. See [docker-compose.yaml](../docker-compose.yaml).
 
+### Kubernetes
+
+```bash
+make k8s-build k8s-load-kind k8s-dev-up   # kind cluster; see docs/KUBERNETES.md
+curl http://localhost:30080/health
+```
+
+Production: managed Postgres/Redis/S3 + `deploy/overlays/prod`. See [docs/KUBERNETES.md](KUBERNETES.md).
+
 ### Manual deploy
 
 1. Run migrations: `make migrate`

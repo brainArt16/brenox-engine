@@ -1,0 +1,33 @@
+# Reference Ingress — not applied by default.
+# Copy to your overlay or add to kustomization resources after editing host/TLS.
+#
+# Requires an Ingress controller (nginx, traefik, etc.).
+# WebSocket: long proxy timeouts + optional cookie affinity.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: brenox-api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: brenox-ws
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "86400"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.example.com
+      secretName: brenox-api-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: brenox-api
+                port:
+                  name: http
