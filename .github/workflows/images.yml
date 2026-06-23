@@ -11,7 +11,7 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-api:
+  build-engine:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,7 +32,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/brenox-api
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/brenox-engine
           tags: |
             type=ref,event=branch
             type=ref,event=pr

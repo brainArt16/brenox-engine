@@ -553,7 +553,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
-| 2026-06-22 | K8s Ingress (dev/prod), GHCR image workflow (`images.yml`), prod overlay wired to `ghcr.io/brainart16/brenox/*` |
+| 2026-06-22 | Rename prod/dev K8s + image naming: `brenox-api` → `brenox-engine` (GHCR, Deployment, Service, Ingress) |
 | 2026-06-22 | Kubernetes deploy scaffold: `deploy/` Kustomize overlays (dev/prod), migrate image, `docs/KUBERNETES.md`, Makefile `k8s-*` targets |
 | 2026-06-06 | Phase 4 complete: RBAC, member admin APIs, read-only channels, authz tests |
 | 2026-06-06 | Phase 3 complete: workspaces, workspace-scoped routes, migration 000004 |

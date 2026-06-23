@@ -30,7 +30,7 @@ Production: managed Postgres/Redis/S3 + `deploy/overlays/prod`. See [docs/KUBERN
 
 1. Run migrations: `make migrate`
 2. Set env vars (see [SECRETS.md](SECRETS.md))
-3. Start binary: `./brenox-api` or `make run`
+3. Start binary: `./brenox-engine` or `make run`
 4. Verify: `GET /health` returns `"status":"ok"`
 
 ### Pre-deploy checklist

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: brenox-api
+  name: brenox-engine
 spec:
   template:
     spec:
@@ -20,5 +20,5 @@ spec:
             - until nc -z redis 6379; do echo waiting for redis; sleep 2; done
       containers:
         - name: api
-          image: brenox-api:dev
+          image: brenox-engine:dev
           imagePullPolicy: IfNotPresent

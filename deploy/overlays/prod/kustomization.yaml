@@ -8,7 +8,7 @@ resources:
   - ingress.yaml
 
 replicas:
-  - name: brenox-api
+  - name: brenox-engine
     count: 3
 
 patches:

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: brenox-api
+  name: brenox-engine
   labels:
     app.kubernetes.io/component: api
 spec:
@@ -17,7 +17,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: api
-          image: brenox-api:latest
+          image: brenox-engine:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

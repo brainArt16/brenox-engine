@@ -74,11 +74,11 @@ k8s-cluster-create:
 	kind create cluster --name $(KIND_CLUSTER)
 
 k8s-build:
-	docker build -t brenox-api:dev .
+	docker build -t brenox-engine:dev .
 	docker build -f deploy/Dockerfile.migrate -t brenox-migrate:dev .
 
 k8s-load-kind:
-	kind load docker-image brenox-api:dev --name $(KIND_CLUSTER)
+	kind load docker-image brenox-engine:dev --name $(KIND_CLUSTER)
 	kind load docker-image brenox-migrate:dev --name $(KIND_CLUSTER)
 
 k8s-dev-up: k8s-check k8s-build
@@ -97,7 +97,7 @@ k8s-dev-down:
 	kubectl delete -k deploy/overlays/$(K8S_OVERLAY) --ignore-not-found
 
 k8s-port-forward:
-	kubectl port-forward -n $(K8S_NAMESPACE) svc/brenox-api 8080:8080
+	kubectl port-forward -n $(K8S_NAMESPACE) svc/brenox-engine 8080:8080
 
 k8s-ingress-kind:
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml

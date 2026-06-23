@@ -8,7 +8,7 @@ Run Brenox on Kubernetes using the manifests in [`deploy/`](../deploy/). The API
 |------|---------|
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | Apply manifests |
 | [kind](https://kind.sigs.k8s.io/) / [minikube](https://minikube.sigs.k8s.io/) / Docker Desktop K8s | Local cluster (dev) |
-| Docker | Build `brenox-api` and `brenox-migrate` images |
+| Docker | Build `brenox-engine` and `brenox-migrate` images |
 
 For production: a cloud cluster (EKS, GKE, AKS, etc.), container registry, managed PostgreSQL, managed Redis, and S3-compatible storage.
 
@@ -20,7 +20,7 @@ For production: a cloud cluster (EKS, GKE, AKS, etc.), container registry, manag
                     └────────┬────────┘
               ┌──────────────┼──────────────┐
               ▼              ▼              ▼
-         brenox-api      brenox-api      brenox-api
+         brenox-engine      brenox-engine      brenox-engine
               └──────────────┼──────────────┘
                              │
               ┌──────────────┼──────────────┐
@@ -63,7 +63,7 @@ make k8s-build
 
 Builds:
 
-- `brenox-api:dev` — from root `Dockerfile`
+- `brenox-engine:dev` — from root `Dockerfile`
 - `brenox-migrate:dev` — from `deploy/Dockerfile.migrate` (embeds `sql/migrations`)
 
 ### 3. Load images into the cluster
@@ -77,7 +77,7 @@ make k8s-load-kind
 **minikube:**
 
 ```bash
-minikube image load brenox-api:dev
+minikube image load brenox-engine:dev
 minikube image load brenox-migrate:dev
 ```
 
@@ -156,7 +156,7 @@ Pushes to `main`/`master` and version tags (`v*`) build and push to **GitHub Con
 
 | Image | Path |
 |-------|------|
-| API | `ghcr.io/<owner>/<repo>/brenox-api` |
+| API | `ghcr.io/<owner>/<repo>/brenox-engine` |
 | Migrate | `ghcr.io/<owner>/<repo>/brenox-migrate` |
 
 Workflow: [`.github/workflows/images.yml`](../.github/workflows/images.yml). Pull requests build images only (no push).
@@ -164,10 +164,10 @@ Workflow: [`.github/workflows/images.yml`](../.github/workflows/images.yml). Pul
 After the first push, make the packages **public** (or configure image pull secrets on the cluster):
 
 ```text
-GitHub → Packages → brenox-api → Package settings → Change visibility
+GitHub → Packages → brenox-engine → Package settings → Change visibility
 ```
 
-Prod overlay defaults to `ghcr.io/brainart16/brenox/brenox-api:latest` — edit `deployment-patch.yaml` / `job-migrate-patch.yaml` if your repo path differs.
+Prod overlay defaults to `ghcr.io/brainart16/brenox/brenox-engine:latest` — edit `deployment-patch.yaml` / `job-migrate-patch.yaml` if your repo path differs.
 
 ### Cluster setup
 
@@ -192,7 +192,7 @@ Prod overlay defaults to `ghcr.io/brainart16/brenox/brenox-api:latest` — edit 
    make k8s-migrate K8S_OVERLAY=prod
    ```
 
-5. **Ingress** — prod overlay includes nginx Ingress with WebSocket timeouts and cookie affinity. Install an [nginx ingress controller](https://kubernetes.github.io/ingress-nginx/deploy/) on the cluster. TLS secret `brenox-api-tls` is created by cert-manager or supplied manually.
+5. **Ingress** — prod overlay includes nginx Ingress with WebSocket timeouts and cookie affinity. Install an [nginx ingress controller](https://kubernetes.github.io/ingress-nginx/deploy/) on the cluster. TLS secret `brenox-engine-tls` is created by cert-manager or supplied manually.
 
    WebSocket connections are sticky to the pod that accepted the upgrade. Redis pub/sub still fans out events across nodes ([DEPLOYMENT.md](DEPLOYMENT.md)).
 
@@ -229,7 +229,7 @@ All variables from [`.env.example`](../.env.example) apply. The ConfigMap and Se
 | Workflow | Trigger | Action |
 |----------|---------|--------|
 | [`ci.yml`](../.github/workflows/ci.yml) | PR + push | Go test, build |
-| [`images.yml`](../.github/workflows/images.yml) | PR + push + `v*` tags | Build/push `brenox-api` + `brenox-migrate` to GHCR |
+| [`images.yml`](../.github/workflows/images.yml) | PR + push + `v*` tags | Build/push `brenox-engine` + `brenox-migrate` to GHCR |
 
 Manual local build remains: `make k8s-build`.
 
@@ -238,7 +238,7 @@ Manual local build remains: `make k8s-build`.
 | Symptom | Check |
 |---------|-------|
 | `connection refused` on `localhost:8080` during `kubectl apply` | No cluster / no kube context — run `make k8s-cluster-create` or enable Kubernetes in Docker Desktop |
-| API pod `CrashLoopBackOff` | `kubectl logs -n brenox deploy/brenox-api` — often missing Secret or DB unreachable |
+| API pod `CrashLoopBackOff` | `kubectl logs -n brenox deploy/brenox-engine` — often missing Secret or DB unreachable |
 | Readiness never passes | Migrations not applied — run `make k8s-migrate` |
 | `ImagePullBackOff` | Run `make k8s-load-kind` or set `imagePullPolicy` + registry |
 | WebSocket fails via Ingress | Enable WS upgrade + long proxy timeouts on ingress controller |

@@ -6,7 +6,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: brenox-api
+  name: brenox-engine
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
@@ -19,7 +19,7 @@ spec:
   tls:
     - hosts:
         - api.example.com
-      secretName: brenox-api-tls
+      secretName: brenox-engine-tls
   rules:
     - host: api.example.com
       http:
@@ -28,6 +28,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: brenox-api
+                name: brenox-engine
                 port:
                   name: http
