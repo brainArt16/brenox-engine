@@ -1,5 +1,5 @@
 .PHONY: migration migrate migrate-dev run dev-up dev-down dev-logs db-start sqlc build test test-integration test-integration-db
-.PHONY: k8s-build k8s-load-kind k8s-dev-up k8s-dev-down k8s-migrate k8s-port-forward k8s-ingress-kind
+.PHONY: k8s-build k8s-load-kind k8s-dev-up k8s-dev-down k8s-migrate k8s-port-forward k8s-ingress-kind k8s-check k8s-cluster-create
 
 # Prevent make treating the migration name as a file/target
 %:
@@ -63,6 +63,16 @@ K8S_NAMESPACE ?= brenox
 K8S_OVERLAY ?= dev
 KIND_CLUSTER ?= brenox
 
+k8s-check:
+	@kubectl config current-context >/dev/null 2>&1 || ( \
+		echo "No Kubernetes cluster configured."; \
+		echo "  kind:  make k8s-cluster-create   # then make k8s-load-kind k8s-dev-up"; \
+		echo "  Docker Desktop: enable Kubernetes in Settings, then retry"; \
+		exit 1)
+
+k8s-cluster-create:
+	kind create cluster --name $(KIND_CLUSTER)
+
 k8s-build:
 	docker build -t brenox-api:dev .
 	docker build -f deploy/Dockerfile.migrate -t brenox-migrate:dev .
@@ -71,7 +81,7 @@ k8s-load-kind:
 	kind load docker-image brenox-api:dev --name $(KIND_CLUSTER)
 	kind load docker-image brenox-migrate:dev --name $(KIND_CLUSTER)
 
-k8s-dev-up: k8s-build
+k8s-dev-up: k8s-check k8s-build
 	kubectl apply -k deploy/overlays/$(K8S_OVERLAY)
 	$(MAKE) k8s-migrate K8S_OVERLAY=$(K8S_OVERLAY)
 

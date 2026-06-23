@@ -117,7 +117,7 @@ Only the API port is published; database, Redis, and MinIO stay on the internal 
 ### Kubernetes (local cluster)
 
 ```bash
-kind create cluster --name brenox
+make k8s-cluster-create   # first time only — creates kind cluster "brenox"
 make k8s-build k8s-load-kind k8s-dev-up
 curl http://localhost:30080/health
 ```

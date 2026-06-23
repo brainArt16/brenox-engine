@@ -37,16 +37,22 @@ See also [DEPLOYMENT.md](DEPLOYMENT.md) for multi-instance Redis pub/sub and Web
 
 ### 1. Create a cluster
 
-**kind:**
+You need a running cluster **before** `make k8s-dev-up`. If `kubectl` has no context, it fails with `connection refused` on `localhost:8080` — that is the missing Kubernetes API, not the Brenox app.
+
+**kind (recommended):**
 
 ```bash
-kind create cluster --name brenox
+make k8s-cluster-create   # kind create cluster --name brenox
+make k8s-build k8s-load-kind k8s-dev-up
 ```
 
-**minikube:**
+**Docker Desktop:** Settings → Kubernetes → Enable Kubernetes → wait until green, then retry `make k8s-dev-up`.
+
+Verify:
 
 ```bash
-minikube start
+kubectl config current-context
+kubectl cluster-info
 ```
 
 ### 2. Build images
@@ -231,6 +237,7 @@ Manual local build remains: `make k8s-build`.
 
 | Symptom | Check |
 |---------|-------|
+| `connection refused` on `localhost:8080` during `kubectl apply` | No cluster / no kube context — run `make k8s-cluster-create` or enable Kubernetes in Docker Desktop |
 | API pod `CrashLoopBackOff` | `kubectl logs -n brenox deploy/brenox-api` — often missing Secret or DB unreachable |
 | Readiness never passes | Migrations not applied — run `make k8s-migrate` |
 | `ImagePullBackOff` | Run `make k8s-load-kind` or set `imagePullPolicy` + registry |
