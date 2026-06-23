@@ -237,7 +237,7 @@ Manual local build remains: `make k8s-build`.
 
 | Symptom | Check |
 |---------|-------|
-| `connection refused` on `localhost:8080` during `kubectl apply` | No cluster / no kube context — run `make k8s-cluster-create` or enable Kubernetes in Docker Desktop |
+| `connection refused` on `localhost:8080` during `kubectl apply` | No active kube context — `kubectl config use-context kind-brenox` or `make k8s-check` (auto-selects kind context if present) |
 | API pod `CrashLoopBackOff` | `kubectl logs -n brenox deploy/brenox-engine` — often missing Secret or DB unreachable |
 | Readiness never passes | Migrations not applied — run `make k8s-migrate` |
 | `ImagePullBackOff` | Run `make k8s-load-kind` or set `imagePullPolicy` + registry |

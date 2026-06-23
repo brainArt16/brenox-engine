@@ -64,14 +64,22 @@ K8S_OVERLAY ?= dev
 KIND_CLUSTER ?= brenox
 
 k8s-check:
-	@kubectl config current-context >/dev/null 2>&1 || ( \
-		echo "No Kubernetes cluster configured."; \
-		echo "  kind:  make k8s-cluster-create   # then make k8s-load-kind k8s-dev-up"; \
-		echo "  Docker Desktop: enable Kubernetes in Settings, then retry"; \
-		exit 1)
+	@kubectl config current-context >/dev/null 2>&1 && exit 0; \
+	ctx="kind-$(KIND_CLUSTER)"; \
+	if kubectl config get-contexts -o name 2>/dev/null | grep -Fxq "$$ctx"; then \
+		echo "Activating kubectl context $$ctx"; \
+		kubectl config use-context "$$ctx"; \
+		exit 0; \
+	fi; \
+	echo "No Kubernetes cluster configured."; \
+	echo "  kind:  make k8s-cluster-create   # then make k8s-load-kind k8s-dev-up"; \
+	echo "  Or:    kubectl config use-context kind-$(KIND_CLUSTER)"; \
+	echo "  Docker Desktop: enable Kubernetes in Settings, then retry"; \
+	exit 1
 
 k8s-cluster-create:
 	kind create cluster --name $(KIND_CLUSTER)
+	kubectl config use-context kind-$(KIND_CLUSTER)
 
 k8s-build:
 	docker build -t brenox-engine:dev .
