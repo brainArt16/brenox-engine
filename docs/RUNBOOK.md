@@ -9,10 +9,10 @@ Operations guide for deploy, rollback, and incident response.
 | Environment | Compose file | Env file | Make target |
 |-------------|--------------|----------|-------------|
 | Dev | `docker-compose.dev.yaml` | `.env` (optional) | `make dev-up` |
-| Test | `docker-compose.test.yaml` | `.env.test` | `make test-up` |
-| Prod | `docker-compose.prod.yaml` | `.env.prod` | `make prod-up` |
+| Test | `deploy/compose/docker-compose.yaml` | `.env.test` | `make test-up` |
+| Prod | `deploy/compose/docker-compose.yaml` | `.env.prod` | `make prod-up` |
 
-Test and prod use managed Postgres, Redis, and S3 — set `DB_HOST`, `REDIS_URL`, and `S3_*` in `.env.test` or `.env.prod`. Run migrations with `make migrate-test` or `make migrate-prod`.
+Test and prod share one compose file; environment-specific values live in `.env.test` / `.env.prod` (`COMPOSE_PROJECT_NAME`, `DEPLOY_RESTART`, `DB_*`, `REDIS_URL`, `S3_*`, etc.).
 
 ```bash
 cp .env.test.example .env.test
@@ -22,6 +22,8 @@ curl http://localhost:8080/health
 ```
 
 Secrets live in env files (gitignored), not in compose YAML or the image.
+
+**Coolify:** Base Directory = `deploy/compose`, Compose file = `docker-compose.yaml`. Set env vars in the Coolify UI (same keys as `.env.test.example`).
 
 ### Kubernetes
 

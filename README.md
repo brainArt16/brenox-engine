@@ -71,8 +71,7 @@ brenox-engine/
 │   └── workflows/                  # CI + container image builds (GHCR)
 ├── Dockerfile                      # API image
 ├── docker-compose.dev.yaml         # Local dev — all services in Docker
-├── docker-compose.test.yaml        # Test — API, managed DB/Redis/S3
-├── docker-compose.prod.yaml        # Production — API, managed DB/Redis/S3
+├── docker-compose.yaml  # Test + prod deploy (env differs)
 ├── Makefile
 └── sqlc.yaml
 ```

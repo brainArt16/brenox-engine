@@ -1,25 +1,26 @@
-# Test — API only; Postgres, Redis, and S3 are managed externally.
+# Deploy — API only; Postgres, Redis, and S3 are managed externally.
+# Use .env.test or .env.prod for environment-specific values.
 #
-#   cp .env.test.example .env.test
-#   make migrate-test
-#   make test-up
+#   make test-up | make prod-up
 
-name: brenox-test
+name: ${COMPOSE_PROJECT_NAME:-brenox}
 
 services:
   migrate:
     profiles: [migrate]
     image: migrate/migrate:v4.17.1
     volumes:
-      - ./sql/migrations:/migrations
+      - ../../sql/migrations:/migrations
     entrypoint: >
       sh -c 'migrate -path=/migrations
       -database="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-require}"
       up'
 
   api:
-    build: .
-    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: ${DEPLOY_RESTART:-unless-stopped}
     ports:
       - "${PORT:-8080}:8080"
     environment:

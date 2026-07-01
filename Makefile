@@ -38,34 +38,36 @@ dev-logs:
 # Alias for dev-up
 db-start: dev-up
 
-# Test / staging — managed DB/Redis/S3 by default; see .env.test.example
+# Test / prod — shared compose file; see .env.test.example / .env.prod.example
+COMPOSE_DEPLOY = docker-compose.yaml
+
 test-up:
 	@test -f .env.test || (echo "Copy .env.test.example to .env.test and set secrets first" && exit 1)
-	docker compose -f docker-compose.test.yaml --env-file .env.test up -d --build
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.test up -d --build
 
 test-down:
-	docker compose -f docker-compose.test.yaml --env-file .env.test down
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.test down
 
 test-logs:
-	docker compose -f docker-compose.test.yaml --env-file .env.test logs -f api
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.test logs -f api
 
 migrate-test:
 	@test -f .env.test || (echo "Copy .env.test.example to .env.test first" && exit 1)
-	docker compose -f docker-compose.test.yaml --profile migrate --env-file .env.test run --rm migrate
+	docker compose -f $(COMPOSE_DEPLOY) --profile migrate --env-file .env.test run --rm migrate
 
 prod-up:
 	@test -f .env.prod || (echo "Copy .env.prod.example to .env.prod and set secrets first" && exit 1)
-	docker compose -f docker-compose.prod.yaml --env-file .env.prod up -d --build
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.prod up -d --build
 
 prod-down:
-	docker compose -f docker-compose.prod.yaml --env-file .env.prod down
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.prod down
 
 prod-logs:
-	docker compose -f docker-compose.prod.yaml --env-file .env.prod logs -f api
+	docker compose -f $(COMPOSE_DEPLOY) --env-file .env.prod logs -f api
 
 migrate-prod:
 	@test -f .env.prod || (echo "Copy .env.prod.example to .env.prod first" && exit 1)
-	docker compose -f docker-compose.prod.yaml --profile migrate --env-file .env.prod run --rm migrate
+	docker compose -f $(COMPOSE_DEPLOY) --profile migrate --env-file .env.prod run --rm migrate
 
 sqlc:
 	sqlc generate
