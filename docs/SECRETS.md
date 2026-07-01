@@ -39,9 +39,13 @@ Brenox never commits secrets to the repository. All sensitive values are supplie
 
 | File | Purpose |
 |------|---------|
-| `.env.docker.example` | Template for `docker compose` — copy to `.env` |
-| `.env` | **Gitignored** — real secrets for local stack or deploy |
-| `docker-compose.yaml` | References `${VAR}` and `env_file: .env` — no embedded passwords |
+| `.env.example` | Local dev (`make dev-up` / `make run`) |
+| `.env.test.example` | Test — managed DB/Redis/S3 |
+| `.env.prod.example` | Production — external DB/Redis/S3 only |
+| `.env`, `.env.test`, `.env.prod` | **Gitignored** — real secrets |
+| `docker-compose.dev.yaml` | Dev stack |
+| `docker-compose.test.yaml` | Test/staging deploy |
+| `docker-compose.prod.yaml` | Production deploy |
 | `Dockerfile` | Builds binary only; no secrets baked in |
 
 For cloud production, inject env vars from your secret store (K8s secrets, AWS Secrets Manager, etc.) instead of a `.env` file on disk.

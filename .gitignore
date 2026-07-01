@@ -381,6 +381,8 @@ MigrationBackup/
 
 # Environment variable files
 .env
+.env.test
+.env.prod
 deploy/overlays/prod/config.env
 
 # Cursor hook session state (local edit tracking)

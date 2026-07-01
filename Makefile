@@ -1,4 +1,5 @@
 .PHONY: migration migrate migrate-dev run dev-up dev-down dev-logs db-start sqlc build test test-integration test-integration-db
+.PHONY: test-up test-down test-logs migrate-test prod-up prod-down prod-logs
 .PHONY: k8s-build k8s-load-kind k8s-dev-up k8s-dev-down k8s-migrate k8s-port-forward k8s-ingress-kind k8s-check k8s-cluster-create
 
 # Prevent make treating the migration name as a file/target
@@ -37,9 +38,34 @@ dev-logs:
 # Alias for dev-up
 db-start: dev-up
 
-stack:
-	@test -f .env || (echo "Copy .env.docker.example to .env and set secrets first" && exit 1)
-	docker compose up -d --build
+# Test / staging — managed DB/Redis/S3 by default; see .env.test.example
+test-up:
+	@test -f .env.test || (echo "Copy .env.test.example to .env.test and set secrets first" && exit 1)
+	docker compose -f docker-compose.test.yaml --env-file .env.test up -d --build
+
+test-down:
+	docker compose -f docker-compose.test.yaml --env-file .env.test down
+
+test-logs:
+	docker compose -f docker-compose.test.yaml --env-file .env.test logs -f api
+
+migrate-test:
+	@test -f .env.test || (echo "Copy .env.test.example to .env.test first" && exit 1)
+	docker compose -f docker-compose.test.yaml --profile migrate --env-file .env.test run --rm migrate
+
+prod-up:
+	@test -f .env.prod || (echo "Copy .env.prod.example to .env.prod and set secrets first" && exit 1)
+	docker compose -f docker-compose.prod.yaml --env-file .env.prod up -d --build
+
+prod-down:
+	docker compose -f docker-compose.prod.yaml --env-file .env.prod down
+
+prod-logs:
+	docker compose -f docker-compose.prod.yaml --env-file .env.prod logs -f api
+
+migrate-prod:
+	@test -f .env.prod || (echo "Copy .env.prod.example to .env.prod first" && exit 1)
+	docker compose -f docker-compose.prod.yaml --profile migrate --env-file .env.prod run --rm migrate
 
 sqlc:
 	sqlc generate

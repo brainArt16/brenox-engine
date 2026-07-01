@@ -70,8 +70,9 @@ brenox-engine/
 ├── .github/
 │   └── workflows/                  # CI + container image builds (GHCR)
 ├── Dockerfile                      # API image
-├── docker-compose.yaml             # Production-like stack
-├── docker-compose.dev.yaml         # Local dev stack
+├── docker-compose.dev.yaml         # Local dev — all services in Docker
+├── docker-compose.test.yaml        # Test — API, managed DB/Redis/S3
+├── docker-compose.prod.yaml        # Production — API, managed DB/Redis/S3
 ├── Makefile
 └── sqlc.yaml
 ```
@@ -105,14 +106,22 @@ cp .env.example .env
 make run
 ```
 
-### Production-like stack
+### Test / production
+
+Postgres, Redis, and S3 are managed services — set endpoints in the env file.
 
 ```bash
-cp .env.docker.example .env   # set strong secrets — never commit .env
-make stack
+cp .env.test.example .env.test
+# Edit DB_HOST, REDIS_URL, S3_* for your test providers
+make migrate-test
+make test-up
+
+cp .env.prod.example .env.prod
+make migrate-prod
+make prod-up
 ```
 
-Only the API port is published; database, Redis, and MinIO stay on the internal Docker network.
+See [docs/RUNBOOK.md](docs/RUNBOOK.md) and [docs/SECRETS.md](docs/SECRETS.md).
 
 ### Kubernetes (local cluster)
 

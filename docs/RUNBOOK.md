@@ -4,18 +4,24 @@ Operations guide for deploy, rollback, and incident response.
 
 ## Deploy
 
-### Docker Compose (staging / local prod-like)
+### Docker Compose
+
+| Environment | Compose file | Env file | Make target |
+|-------------|--------------|----------|-------------|
+| Dev | `docker-compose.dev.yaml` | `.env` (optional) | `make dev-up` |
+| Test | `docker-compose.test.yaml` | `.env.test` | `make test-up` |
+| Prod | `docker-compose.prod.yaml` | `.env.prod` | `make prod-up` |
+
+Test and prod use managed Postgres, Redis, and S3 — set `DB_HOST`, `REDIS_URL`, and `S3_*` in `.env.test` or `.env.prod`. Run migrations with `make migrate-test` or `make migrate-prod`.
 
 ```bash
-cp .env.docker.example .env
-# Edit .env — set DB_PASSWORD, JWT_SECRET, MINIO_* (see docs/SECRETS.md)
-docker compose up -d --build
+cp .env.test.example .env.test
+make migrate-test
+make test-up
 curl http://localhost:8080/health
 ```
 
-Secrets live in `.env` (gitignored), not in `docker-compose.yaml` or the image. Only port **8080** (API) is exposed; Postgres, Redis, and MinIO are internal to the compose network.
-
-Stack: API + Postgres + Redis + MinIO + migrate job. See [docker-compose.yaml](../docker-compose.yaml).
+Secrets live in env files (gitignored), not in compose YAML or the image.
 
 ### Kubernetes
 

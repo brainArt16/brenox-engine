@@ -31,7 +31,7 @@ echo "GET http://localhost:8080/health" | vegeta attack -duration=30s -rate=100 
 
 ## Before load testing
 
-1. Start stack: `docker compose up -d`
+1. Start stack: `make test-up` (or `make dev-up` for local dev)
 2. Ensure migrations applied
 3. Monitor `/metrics` and Postgres connections during test
 4. Increase rate limits temporarily if testing auth routes (`HTTP_RATE_LIMIT_PER_IP`)

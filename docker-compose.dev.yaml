@@ -1,7 +1,9 @@
-# Local development — all services in Docker (API + Postgres + Redis + MinIO + migrations).
+# Development — all services in Docker (API + Postgres + Redis + MinIO + migrations).
 # Default credentials are fine for dev only; override via `.env` (see `.env.example`).
 #
 #   make dev-up
+
+name: brenox-dev
 
 services:
   postgres:
