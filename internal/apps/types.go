@@ -10,6 +10,7 @@ var (
 	ErrNameRequired        = errors.New("app name is required")
 	ErrInvalidKey          = errors.New("invalid api key")
 	ErrKeyNotFound         = errors.New("api key not found")
+	ErrWebhookNotFound     = errors.New("webhook not found")
 	ErrWebhookURLRequired  = errors.New("webhook url is required")
 )
 

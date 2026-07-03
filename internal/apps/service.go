@@ -231,6 +231,49 @@ func (s *Service) GetApp(ctx context.Context, appID int64) (db.App, error) {
 	return app, nil
 }
 
+func (s *Service) GetAppForOwner(ctx context.Context, appID, ownerID int64) (AppResponse, error) {
+	app, err := s.assertAppOwner(ctx, appID, ownerID)
+	if err != nil {
+		return AppResponse{}, err
+	}
+	return toAppResponse(app), nil
+}
+
+func (s *Service) ListWebhooks(ctx context.Context, appID, ownerID int64) ([]WebhookResponse, error) {
+	if _, err := s.assertAppOwner(ctx, appID, ownerID); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.queries.ListWebhooksByApp(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]WebhookResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, toWebhookResponse(row))
+	}
+	return items, nil
+}
+
+func (s *Service) DisableWebhook(ctx context.Context, appID, webhookID, ownerID int64) error {
+	if _, err := s.assertAppOwner(ctx, appID, ownerID); err != nil {
+		return err
+	}
+
+	rows, err := s.queries.DisableWebhook(ctx, db.DisableWebhookParams{
+		ID:    webhookID,
+		AppID: appID,
+	})
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrWebhookNotFound
+	}
+	return nil
+}
+
 func (s *Service) assertAppOwner(ctx context.Context, appID, ownerID int64) (db.App, error) {
 	app, err := s.queries.GetAppByID(ctx, appID)
 	if err != nil {

@@ -118,6 +118,13 @@ WHERE app_id = $1
   AND disabled_at IS NULL
 ORDER BY created_at DESC;
 
+-- name: DisableWebhook :execrows
+UPDATE webhooks
+SET disabled_at = NOW()
+WHERE id = $1
+  AND app_id = $2
+  AND disabled_at IS NULL;
+
 -- name: GetIdempotencyKey :one
 SELECT *
 FROM idempotency_keys

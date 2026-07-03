@@ -24,6 +24,7 @@ type WorkspaceResponse struct {
 	Name      string `json:"name"`
 	Slug      string `json:"slug"`
 	OwnerID   int64  `json:"owner_id"`
+	Role      string `json:"role,omitempty"`
 	CreatedAt string `json:"created_at"`
 }
 

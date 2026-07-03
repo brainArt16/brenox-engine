@@ -29,7 +29,8 @@ SELECT
     w.name,
     w.slug,
     w.owner_id,
-    w.created_at
+    w.created_at,
+    wm.role
 FROM workspaces w
 INNER JOIN workspace_members wm
     ON w.id = wm.workspace_id

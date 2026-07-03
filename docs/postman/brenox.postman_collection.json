@@ -604,6 +604,22 @@
           }
         },
         {
+          "name": "List Apps",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/apps"
+          }
+        },
+        {
+          "name": "Get App",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/apps/{{appId}}"
+          }
+        },
+        {
           "name": "Create API Key",
           "event": [
             {
@@ -630,6 +646,22 @@
           }
         },
         {
+          "name": "List API Keys",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/apps/{{appId}}/keys"
+          }
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/apps/{{appId}}/keys/{{keyId}}"
+          }
+        },
+        {
           "name": "Create Webhook",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
@@ -640,6 +672,22 @@
               "raw": "{\n  \"url\": \"https://example.com/webhooks/brenox\",\n  \"events\": [\"message.created\", \"user.provisioned\", \"channel.created\"]\n}"
             },
             "url": "{{baseUrl}}/api/apps/{{appId}}/webhooks"
+          }
+        },
+        {
+          "name": "List Webhooks",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/apps/{{appId}}/webhooks"
+          }
+        },
+        {
+          "name": "Delete Webhook",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/apps/{{appId}}/webhooks/{{webhookId}}"
           }
         }
       ]

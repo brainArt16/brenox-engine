@@ -65,7 +65,12 @@ func (h *Handler) GetWorkspace(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, ToWorkspaceResponse(*workspace))
+	resp := ToWorkspaceResponse(*workspace)
+	if role, err := h.service.MemberRole(c.Request.Context(), workspaceID, userID); err == nil {
+		resp.Role = role
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (h *Handler) ListMembers(c *gin.Context) {

@@ -187,7 +187,8 @@ SELECT
     w.name,
     w.slug,
     w.owner_id,
-    w.created_at
+    w.created_at,
+    wm.role
 FROM workspaces w
 INNER JOIN workspace_members wm
     ON w.id = wm.workspace_id
@@ -201,6 +202,7 @@ type GetWorkspacesByUserRow struct {
 	Slug      string
 	OwnerID   int64
 	CreatedAt pgtype.Timestamptz
+	Role      string
 }
 
 func (q *Queries) GetWorkspacesByUser(ctx context.Context, userID int64) ([]GetWorkspacesByUserRow, error) {
@@ -218,6 +220,7 @@ func (q *Queries) GetWorkspacesByUser(ctx context.Context, userID int64) ([]GetW
 			&i.Slug,
 			&i.OwnerID,
 			&i.CreatedAt,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}

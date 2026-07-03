@@ -121,6 +121,20 @@ func (s *Service) assertMember(ctx context.Context, workspaceID, userID int64) e
 	return nil
 }
 
+func (s *Service) MemberRole(ctx context.Context, workspaceID, userID int64) (string, error) {
+	member, err := s.queries.GetWorkspaceMember(ctx, db.GetWorkspaceMemberParams{
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotMember
+		}
+		return "", err
+	}
+	return member.Role, nil
+}
+
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 func normalizeSlug(rawSlug, name string) (string, error) {
@@ -156,6 +170,7 @@ func ToWorkspaceListItem(row db.GetWorkspacesByUserRow) WorkspaceResponse {
 		Name:      row.Name,
 		Slug:      row.Slug,
 		OwnerID:   row.OwnerID,
+		Role:      row.Role,
 		CreatedAt: formatTime(row.CreatedAt),
 	}
 }

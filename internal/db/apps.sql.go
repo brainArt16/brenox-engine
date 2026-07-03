@@ -223,6 +223,27 @@ func (q *Queries) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (W
 	return i, err
 }
 
+const disableWebhook = `-- name: DisableWebhook :execrows
+UPDATE webhooks
+SET disabled_at = NOW()
+WHERE id = $1
+  AND app_id = $2
+  AND disabled_at IS NULL
+`
+
+type DisableWebhookParams struct {
+	ID    int64
+	AppID int64
+}
+
+func (q *Queries) DisableWebhook(ctx context.Context, arg DisableWebhookParams) (int64, error) {
+	result, err := q.db.Exec(ctx, disableWebhook, arg.ID, arg.AppID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAPIKeyByPrefix = `-- name: GetAPIKeyByPrefix :one
 SELECT id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at
 FROM api_keys

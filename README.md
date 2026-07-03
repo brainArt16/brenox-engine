@@ -188,8 +188,14 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |
 | POST | `/api/apps` | JWT | Create developer app (dedicated workspace) |
+| GET | `/api/apps` | JWT | List your developer apps |
+| GET | `/api/apps/:app_id` | JWT | Get app by ID (owner only) |
 | POST | `/api/apps/:app_id/keys` | JWT | Create API key (secret shown once) |
+| GET | `/api/apps/:app_id/keys` | JWT | List API keys for app |
+| DELETE | `/api/apps/:app_id/keys/:key_id` | JWT | Revoke API key |
 | POST | `/api/apps/:app_id/webhooks` | JWT | Register webhook endpoint |
+| GET | `/api/apps/:app_id/webhooks` | JWT | List webhooks for app |
+| DELETE | `/api/apps/:app_id/webhooks/:webhook_id` | JWT | Disable webhook |
 | POST | `/v1/users` | API key | Provision app-scoped user |
 | POST | `/v1/channels` | API key | Create channel in app workspace |
 | POST | `/v1/messages` | API key | Send message |

@@ -186,10 +186,13 @@ func main() {
 
 	api.POST("/apps", appsHandlerInstance.CreateApp)
 	api.GET("/apps", appsHandlerInstance.ListApps)
+	api.GET("/apps/:app_id", appsHandlerInstance.GetApp)
 	api.POST("/apps/:app_id/keys", appsHandlerInstance.CreateAPIKey)
 	api.GET("/apps/:app_id/keys", appsHandlerInstance.ListAPIKeys)
 	api.DELETE("/apps/:app_id/keys/:key_id", appsHandlerInstance.RevokeAPIKey)
 	api.POST("/apps/:app_id/webhooks", appsHandlerInstance.CreateWebhook)
+	api.GET("/apps/:app_id/webhooks", appsHandlerInstance.ListWebhooks)
+	api.DELETE("/apps/:app_id/webhooks/:webhook_id", appsHandlerInstance.DeleteWebhook)
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))
