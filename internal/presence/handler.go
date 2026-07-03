@@ -63,6 +63,16 @@ func (h *Handler) UpdateMyStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, presence)
 }
 
+func (h *Handler) GetMyStatus(c *gin.Context) {
+	userID := c.MustGet("user_id").(int64)
+	presence, err := h.service.Get(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+	c.JSON(http.StatusOK, presence)
+}
+
 func parseWorkspaceID(c *gin.Context) (int64, error) {
 	workspaceID, err := strconv.ParseInt(c.Param("workspace_id"), 10, 64)
 	if err != nil {

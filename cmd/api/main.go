@@ -181,6 +181,8 @@ func main() {
 	api.GET("/presence", presenceHandler.GetGlobalPresence)
 	api.GET("/users/me", usersHandlerInstance.GetMe)
 	api.PATCH("/users/me", usersHandlerInstance.UpdateMe)
+	api.PATCH("/users/me/password", usersHandlerInstance.ChangePassword)
+	api.GET("/users/me/status", presenceHandler.GetMyStatus)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
 	api.GET("/ws", wsHandler.HandleWebSocket)
 

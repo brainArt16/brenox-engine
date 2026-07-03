@@ -7,14 +7,18 @@ import (
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/auth"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var (
-	ErrNotFound          = errors.New("user not found")
-	ErrUsernameRequired  = errors.New("username is required")
-	ErrUsernameTaken     = errors.New("username already taken")
+	ErrNotFound              = errors.New("user not found")
+	ErrUsernameRequired      = errors.New("username is required")
+	ErrUsernameTaken         = errors.New("username already taken")
+	ErrInvalidPassword       = errors.New("current password is incorrect")
+	ErrPasswordRequired      = errors.New("password is required")
+	ErrPasswordTooShort      = errors.New("password must be at least 8 characters")
 )
 
 type Service struct {
@@ -34,6 +38,11 @@ type ProfileResponse struct {
 
 type UpdateProfileRequest struct {
 	Username string `json:"username"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }
 
 func (s *Service) GetProfile(ctx context.Context, userID int64) (ProfileResponse, error) {
@@ -73,6 +82,40 @@ func (s *Service) UpdateProfile(ctx context.Context, userID int64, req UpdatePro
 	}
 
 	return toProfileResponse(user), nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, userID int64, req ChangePasswordRequest) error {
+	current := strings.TrimSpace(req.CurrentPassword)
+	next := strings.TrimSpace(req.NewPassword)
+
+	if current == "" || next == "" {
+		return ErrPasswordRequired
+	}
+	if len(next) < 8 {
+		return ErrPasswordTooShort
+	}
+
+	user, err := s.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	if err := auth.CheckPassword(current, user.PasswordHash); err != nil {
+		return ErrInvalidPassword
+	}
+
+	hashed, err := auth.HashPassword(next)
+	if err != nil {
+		return err
+	}
+
+	return s.queries.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+		ID:           userID,
+		PasswordHash: hashed,
+	})
 }
 
 func toProfileResponse(user db.User) ProfileResponse {

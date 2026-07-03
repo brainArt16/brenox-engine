@@ -31,3 +31,8 @@ UPDATE users
 SET username = $2
 WHERE id = $1
 RETURNING *;
+
+-- name: UpdateUserPassword :exec
+UPDATE users
+SET password_hash = $2
+WHERE id = $1;

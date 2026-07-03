@@ -117,6 +117,27 @@
             "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo_user\"\n}" },
             "url": "{{baseUrl}}/api/users/me"
           }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"secret\",\n  \"new_password\": \"newsecret123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/users/me/password"
+          }
+        },
+        {
+          "name": "Get My Status",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/users/me/status"
+          }
         }
       ]
     },

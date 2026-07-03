@@ -553,6 +553,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-03 | User security: `PATCH /api/users/me/password`, `GET /api/users/me/status` for dashboard profile |
 | 2026-07-03 | Workspace list/get include member `role`; webhook/app routes for dashboard (prior entry) |
 | 2026-06-22 | Rename prod/dev K8s + image naming: `brenox-api` → `brenox-engine` (GHCR, Deployment, Service, Ingress) |
 | 2026-06-22 | Kubernetes deploy scaffold: `deploy/` Kustomize overlays (dev/prod), migrate image, `docs/KUBERNETES.md`, Makefile `k8s-*` targets |

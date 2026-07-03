@@ -183,6 +183,8 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
 | GET | `/api/users/me` | JWT | Current user profile |
 | PATCH | `/api/users/me` | JWT | Update username |
+| PATCH | `/api/users/me/password` | JWT | Change password (requires current password) |
+| GET | `/api/users/me/status` | JWT | Current presence status |
 | PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
