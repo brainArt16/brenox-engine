@@ -21,7 +21,8 @@ JWT routes under `/auth/*` and `/api/*` are not path-versioned today. Breaking c
 | Docs catalog | `brenox-web/lib/docs/engine-versions.ts` |
 | OpenAPI document version | `docs/openapi.yaml` `info.version` |
 
-**Production API:** `https://api.breno-x.com`
+**Production API:** `https://api.breno-x.com`  
+**Developer console / docs:** `https://www.breno-x.com`
 
 ## Runtime
 
