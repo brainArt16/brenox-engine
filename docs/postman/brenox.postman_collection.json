@@ -20,6 +20,14 @@
       "name": "Health",
       "item": [
         {
+          "name": "Version",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/version",
+            "description": "Engine release semver and Developer API contract version. No auth required."
+          }
+        },
+        {
           "name": "Health Check",
           "request": {
             "method": "GET",

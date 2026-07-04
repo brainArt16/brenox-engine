@@ -9,6 +9,8 @@ info:
     Create apps and API keys via the JWT-protected management routes under `/api/apps`.
 
 servers:
+  - url: https://api.breno-x.com
+    description: Production
   - url: http://localhost:8080
     description: Local development
 

@@ -12,6 +12,7 @@ Go backend for a reusable realtime communication infrastructure (workspaces, cha
 | [docs/WEBSOCKET_EVENTS.md](docs/WEBSOCKET_EVENTS.md) | WebSocket event catalog |
 | [docs/WEBRTC.md](docs/WEBRTC.md) | Voice/video call signaling + TURN/STUN client config |
 | [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md) | SDK integration guide for WebRTC clients |
+| [docs/VERSIONING.md](docs/VERSIONING.md) | Engine release semver + API contract versioning |
 | [docs/openapi.yaml](docs/openapi.yaml) | Public Developer API OpenAPI spec |
 | [docs/SDK_INTEGRATION.md](docs/SDK_INTEGRATION.md) | SDK auth, WebSocket, reconnection guide |
 | [docs/PERMISSIONS.md](docs/PERMISSIONS.md) | Role-based permission matrix |
@@ -47,6 +48,7 @@ brenox-engine/
 │   ├── ratelimit/                  # API key rate limiting
 │   ├── redis/                      # Redis client wrapper
 │   ├── health/                     # Health check handler
+│   ├── version/                    # Engine release + API contract version
 │   ├── database/                   # Postgres pool
 │   ├── db/                         # sqlc-generated queries
 │   ├── metrics/                    # Prometheus metrics
@@ -85,7 +87,10 @@ Prerequisites: Docker, Make (Go optional if you only use Docker).
 ```bash
 make dev-up          # API + Postgres + Redis + MinIO + migrations
 curl http://localhost:8080/health
+curl http://localhost:8080/version
 ```
+
+**Production:** `https://api.breno-x.com` (see [docs/VERSIONING.md](docs/VERSIONING.md)).
 
 Services: API `:8080`, Postgres `:5432`, Redis `:6379`, MinIO `:9000` (console `:9001`).  
 Default dev credentials — override via `.env` (copy from `.env.example`).
@@ -156,6 +161,7 @@ All channel and message routes are scoped under a workspace.
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/health` | No | DB + Redis health probe |
+| GET | `/version` | No | Engine release + API contract version |
 | GET | `/metrics` | No | Prometheus metrics |
 | POST | `/auth/register` | No | Create account |
 | POST | `/auth/login` | No | Login, returns JWT |

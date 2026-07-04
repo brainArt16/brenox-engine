@@ -5,8 +5,8 @@
 1. Open Postman → **Import**
 2. Select:
    - `brenox.postman_collection.json`
-   - `brenox.postman_environment.json`
-3. Activate the **Brenox Local** environment
+   - `brenox.postman_environment.json` (local) or `brenox.postman_environment.prod.json` (production: `https://api.breno-x.com`)
+3. Activate the matching environment
 
 ## Usage
 

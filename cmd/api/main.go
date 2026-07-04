@@ -17,6 +17,7 @@ import (
 	"github.com/brainart16/brenox/internal/attachments"
 	"github.com/brainart16/brenox/internal/database"
 	"github.com/brainart16/brenox/internal/health"
+	"github.com/brainart16/brenox/internal/version"
 	"github.com/brainart16/brenox/internal/metrics"
 	"github.com/brainart16/brenox/internal/notifications"
 	"github.com/brainart16/brenox/internal/presence"
@@ -131,6 +132,7 @@ func main() {
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
+	versionHandler := version.NewHandler()
 
 	router := gin.Default()
 	router.Use(middleware.SecurityHeadersMiddleware())
@@ -141,6 +143,7 @@ func main() {
 	router.Use(metrics.Middleware())
 
 	router.GET("/health", healthHandler.Check)
+	router.GET("/version", versionHandler.Get)
 	router.GET("/metrics", metrics.Handler())
 
 	authRouter := router.Group("/auth")

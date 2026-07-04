@@ -14,10 +14,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.example.com
+        - api.breno-x.com
       secretName: brenox-engine-tls
   rules:
-    - host: api.example.com
+    - host: api.breno-x.com
       http:
         paths:
           - path: /

@@ -7,7 +7,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/brenox-engine ./cmd/api
+
+ARG VERSION=1.0.0
+ARG COMMIT=unknown
+RUN CGO_ENABLED=0 GOOS=linux go build \
+  -ldflags="-s -w \
+    -X github.com/brainart16/brenox/internal/version.Engine=${VERSION} \
+    -X github.com/brainart16/brenox/internal/version.Commit=${COMMIT}" \
+  -o /out/brenox-engine ./cmd/api
 
 FROM alpine:3.20
 
