@@ -205,6 +205,7 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/apps/:app_id/webhooks` | JWT | List webhooks for app |
 | DELETE | `/api/apps/:app_id/webhooks/:webhook_id` | JWT | Disable webhook |
 | POST | `/v1/users` | API key | Provision app-scoped user |
+| POST | `/v1/sessions` | API key | Issue user JWT for embed clients (optional channel join) |
 | POST | `/v1/channels` | API key | Create channel in app workspace |
 | POST | `/v1/messages` | API key | Send message |
 | GET | `/v1/messages?channel_id=` | API key | List channel messages |

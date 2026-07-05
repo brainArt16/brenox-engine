@@ -165,6 +165,30 @@ curl -s -X POST http://localhost:8080/v1/messages \
   -d '{"channel_id":1,"external_id":"sdk-user-1","content":"Hello SDK"}'
 ```
 
+### Example: embed session token (frontend SDK)
+
+After provisioning a user, your backend issues a JWT for `BrenoxClient`:
+
+```bash
+curl -s -X POST http://localhost:8080/v1/sessions \
+  -H "X-API-Key: $API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"external_id":"sdk-user-1","channel_id":1}'
+```
+
+Response:
+
+```json
+{
+  "token": "eyJhbG...",
+  "workspace_id": 1,
+  "channel_id": 1,
+  "user": { "id": 2, "external_id": "sdk-user-1", "username": "sdk_user" }
+}
+```
+
+Return `token` to your frontend — never expose the API key in the browser.
+
 ## WebSocket send flow (curl + wscat)
 
 ```bash

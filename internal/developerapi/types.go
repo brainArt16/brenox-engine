@@ -48,3 +48,16 @@ type MessageListItem struct {
 	Content   string `json:"content"`
 	CreatedAt string `json:"created_at"`
 }
+
+// CreateSessionRequest issues a user JWT for an app-provisioned user (embed flow).
+type CreateSessionRequest struct {
+	ExternalID string `json:"external_id"`
+	ChannelID  int64  `json:"channel_id,omitempty"`
+}
+
+type SessionResponse struct {
+	Token       string        `json:"token"`
+	WorkspaceID int64         `json:"workspace_id"`
+	ChannelID   int64         `json:"channel_id,omitempty"`
+	User        UserResponse  `json:"user"`
+}

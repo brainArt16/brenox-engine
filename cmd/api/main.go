@@ -204,6 +204,7 @@ func main() {
 	v1.Use(middleware.RateLimitMiddleware(apiRateLimiter))
 	v1.Use(middleware.IdempotencyMiddleware(devAPIService))
 	v1.POST("/users", devAPIHandler.ProvisionUser)
+	v1.POST("/sessions", devAPIHandler.CreateSession)
 	v1.POST("/channels", devAPIHandler.CreateChannel)
 	v1.POST("/messages", devAPIHandler.SendMessage)
 	v1.GET("/messages", devAPIHandler.ListMessages)

@@ -738,6 +738,20 @@
           }
         },
         {
+          "name": "Create Session",
+          "request": {
+            "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"external_id\": \"user-42\",\n  \"channel_id\": {{channelId}}\n}"
+            },
+            "url": "{{baseUrl}}/v1/sessions",
+            "description": "Issue a user JWT for embed/front-end SDK clients. Optionally joins the user to channel_id."
+          }
+        },
+        {
           "name": "Create Channel",
           "request": {
             "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },

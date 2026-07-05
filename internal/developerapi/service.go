@@ -13,6 +13,7 @@ import (
 	"github.com/brainart16/brenox/internal/auth"
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/webhooks"
+	brenoxjwt "github.com/brainart16/brenox/pkg/jwt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -42,6 +43,55 @@ func NewService(queries *db.Queries, broadcast MessageBroadcaster, dispatcher *w
 		broadcast: broadcast,
 		webhooks:  dispatcher,
 	}
+}
+
+func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessionRequest) (SessionResponse, error) {
+	externalID := strings.TrimSpace(req.ExternalID)
+	if externalID == "" {
+		return SessionResponse{}, ErrInvalidRequest
+	}
+
+	userID, err := s.resolveUserID(ctx, app, 0, externalID)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+
+	user, err := s.queries.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionResponse{}, ErrUserNotFound
+		}
+		return SessionResponse{}, err
+	}
+
+	token, err := brenoxjwt.GenerateToken(userID)
+	if err != nil {
+		return SessionResponse{}, err
+	}
+
+	resp := SessionResponse{
+		Token:       token,
+		WorkspaceID: app.WorkspaceID,
+		User:        toUserResponse(user, externalID),
+	}
+
+	if req.ChannelID > 0 {
+		if _, err := s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
+			ID:          req.ChannelID,
+			WorkspaceID: app.WorkspaceID,
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return SessionResponse{}, ErrChannelNotFound
+			}
+			return SessionResponse{}, err
+		}
+		if err := s.ensureChannelMember(ctx, req.ChannelID, userID); err != nil {
+			return SessionResponse{}, err
+		}
+		resp.ChannelID = req.ChannelID
+	}
+
+	return resp, nil
 }
 
 func (s *Service) ProvisionUser(ctx context.Context, app db.App, req ProvisionUserRequest) (UserResponse, error) {

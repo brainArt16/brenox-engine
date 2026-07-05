@@ -44,6 +44,28 @@ paths:
         '429':
           $ref: '#/components/responses/RateLimited'
 
+  /v1/sessions:
+    post:
+      summary: Create user session
+      description: Issues a JWT for a provisioned app user. Use from your backend to embed BrenoxClient in your frontend. Optionally joins the user to a channel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+
   /v1/channels:
     post:
       summary: Create channel
@@ -203,6 +225,29 @@ components:
         is_read_only:
           type: boolean
           default: false
+
+    CreateSessionRequest:
+      type: object
+      required: [external_id]
+      properties:
+        external_id:
+          type: string
+        channel_id:
+          type: integer
+          format: int64
+          description: Optional channel to auto-join before returning the token
+
+    SessionResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        workspace_id:
+          type: integer
+        channel_id:
+          type: integer
+        user:
+          $ref: '#/components/schemas/UserResponse'
 
     SendMessageRequest:
       type: object

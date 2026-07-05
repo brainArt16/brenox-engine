@@ -17,6 +17,23 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) CreateSession(c *gin.Context) {
+	var req CreateSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	app := appFromContext(c)
+	session, err := h.service.CreateSession(c.Request.Context(), app, req)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, session)
+}
+
 func (h *Handler) ProvisionUser(c *gin.Context) {
 	var req ProvisionUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
