@@ -10,7 +10,7 @@ services:
     profiles: [migrate]
     image: migrate/migrate:v4.17.1
     volumes:
-      - ../../sql/migrations:/migrations
+      - ./sql/migrations:/migrations
     entrypoint: >
       sh -c 'migrate -path=/migrations
       -database="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-require}"
@@ -18,7 +18,7 @@ services:
 
   api:
     build:
-      context: ../..
+      context: .
       dockerfile: Dockerfile
     restart: ${DEPLOY_RESTART:-unless-stopped}
     ports:
@@ -30,6 +30,7 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME}
+      DB_SSLMODE: ${DB_SSLMODE:-require}
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_TTL_HOURS: ${JWT_ACCESS_TTL_HOURS:-24}
       JWT_REFRESH_GRACE_HOURS: ${JWT_REFRESH_GRACE_HOURS:-168}

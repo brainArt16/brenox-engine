@@ -23,7 +23,25 @@ curl http://localhost:8080/health
 
 Secrets live in env files (gitignored), not in compose YAML or the image.
 
-**Coolify:** Base Directory = `deploy/compose`, Compose file = `docker-compose.yaml`. Set env vars in the Coolify UI (same keys as `.env.test.example`).
+**Coolify:** Base Directory = repo root. Compose file = `docker-compose.yaml` (API only) or deploy the API via Dockerfile. Set env vars in the Coolify UI (same keys as `.env.prod.example`).
+
+**Run migrations before first deploy** (or after adding new migration files):
+
+```bash
+# Option A — from repo root with .env.prod
+cp .env.prod.example .env.prod   # fill in DB_* for managed Postgres
+make migrate-prod
+
+# Option B — one-off Docker command (replace placeholders)
+docker run --rm \
+  -v "$(pwd)/sql/migrations:/migrations" \
+  migrate/migrate:v4.17.1 \
+  -path=/migrations \
+  -database "postgres://USER:PASS@HOST:5432/DBNAME?sslmode=require" \
+  up
+```
+
+In Coolify you can run Option B as a **Pre-deployment command** or a separate one-shot container using the same `DB_*` env vars as the API.
 
 ### Kubernetes
 
