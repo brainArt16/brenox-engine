@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,12 +29,13 @@ func NewPostgresPool() (*pgxpool.Pool, error) {
 	*/
 
 	databaseURL := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s",
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_HOST"),
 		os.Getenv("DB_PORT"),
 		os.Getenv("DB_NAME"),
+		sslMode(),
 	)
 
 	/*
@@ -57,4 +59,11 @@ func NewPostgresPool() (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+}
+
+func sslMode() string {
+	if mode := strings.TrimSpace(os.Getenv("DB_SSLMODE")); mode != "" {
+		return mode
+	}
+	return "prefer"
 }

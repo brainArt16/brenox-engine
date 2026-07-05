@@ -34,6 +34,7 @@ Brenox runs as one or more stateless HTTP/WebSocket API nodes backed by PostgreS
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DB_*` | Yes | PostgreSQL connection |
+| `DB_SSLMODE` | No | Postgres TLS mode (default `prefer`; use `require` for managed DB) |
 | `JWT_SECRET` | Yes | JWT signing key |
 | `REDIS_URL` | Multi-node | e.g. `redis://redis:6379/0` |
 | `PORT` | No | HTTP listen port (default `8080`) |
@@ -72,6 +73,8 @@ Returns `200` when database (and Redis, if configured) are reachable:
 ```
 
 Use for load balancer and orchestrator probes. No authentication required.
+
+The API Docker image includes `curl` and a built-in `HEALTHCHECK` against `GET /health` (30s start period). Platforms such as Coolify require `curl` or `wget` in the image when using Dockerfile-based health probes.
 
 ## Load balancer — WebSocket
 
