@@ -74,8 +74,6 @@ Returns `200` when database (and Redis, if configured) are reachable:
 
 Use for load balancer and orchestrator probes. No authentication required.
 
-The API Docker image includes `curl` and a built-in `HEALTHCHECK` against `GET /health` (30s start period). Platforms such as Coolify require `curl` or `wget` in the image when using Dockerfile-based health probes.
-
 ## Load balancer — WebSocket
 
 WebSocket connections are **sticky to the node that accepted the upgrade**. TCP connections cannot move between instances mid-session.
