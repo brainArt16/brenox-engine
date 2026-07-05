@@ -175,7 +175,19 @@ func (s *Service) CreateChannel(ctx context.Context, app db.App, req CreateChann
 	})
 	if err != nil {
 		if isDuplicateChannelName(err) {
-			return ChannelResponse{}, fmt.Errorf("channel name already exists")
+			existing, lookupErr := s.queries.GetChannelByNameInWorkspace(ctx, db.GetChannelByNameInWorkspaceParams{
+				WorkspaceID: app.WorkspaceID,
+				Name:        name,
+			})
+			if lookupErr != nil {
+				return ChannelResponse{}, fmt.Errorf("channel name already exists")
+			}
+			return ChannelResponse{
+				ID:          existing.ID,
+				Name:        existing.Name,
+				WorkspaceID: existing.WorkspaceID,
+				IsReadOnly:  existing.IsReadOnly,
+			}, nil
 		}
 		return ChannelResponse{}, err
 	}

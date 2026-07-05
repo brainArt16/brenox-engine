@@ -553,6 +553,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-05 | `POST /v1/channels` idempotent on duplicate name — returns existing channel in app workspace (embed demo bootstrap) |
 | 2026-07-05 | `POST /v1/sessions` — issue user JWT for embed SDK clients; optional channel auto-join; BrenoxServer.sessions in SDK |
 | 2026-07-05 | Engine release versioning: `GET /version`, prod API `https://api.breno-x.com` |
 | 2026-07-03 | User security: `PATCH /api/users/me/password`, `GET /api/users/me/status` for dashboard profile |

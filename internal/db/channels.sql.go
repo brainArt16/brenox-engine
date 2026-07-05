@@ -113,6 +113,50 @@ func (q *Queries) GetChannelByID(ctx context.Context, id int64) (GetChannelByIDR
 	return i, err
 }
 
+const getChannelByNameInWorkspace = `-- name: GetChannelByNameInWorkspace :one
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    is_read_only,
+    created_at,
+    updated_at
+FROM channels
+WHERE workspace_id = $1
+    AND name = $2
+`
+
+type GetChannelByNameInWorkspaceParams struct {
+	WorkspaceID int64
+	Name        string
+}
+
+type GetChannelByNameInWorkspaceRow struct {
+	ID          int64
+	Name        string
+	OwnerID     int64
+	WorkspaceID int64
+	IsReadOnly  bool
+	CreatedAt   pgtype.Timestamptz
+	UpdatedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) GetChannelByNameInWorkspace(ctx context.Context, arg GetChannelByNameInWorkspaceParams) (GetChannelByNameInWorkspaceRow, error) {
+	row := q.db.QueryRow(ctx, getChannelByNameInWorkspace, arg.WorkspaceID, arg.Name)
+	var i GetChannelByNameInWorkspaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.OwnerID,
+		&i.WorkspaceID,
+		&i.IsReadOnly,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getChannelInWorkspace = `-- name: GetChannelInWorkspace :one
 SELECT
     id,

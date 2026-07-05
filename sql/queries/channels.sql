@@ -70,6 +70,19 @@ FROM channels
 WHERE id = $1
     AND workspace_id = $2;
 
+-- name: GetChannelByNameInWorkspace :one
+SELECT
+    id,
+    name,
+    owner_id,
+    workspace_id,
+    is_read_only,
+    created_at,
+    updated_at
+FROM channels
+WHERE workspace_id = $1
+    AND name = $2;
+
 -- name: GetChannelMember :one
 SELECT
     id,
