@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,7 +40,7 @@ func (h *Handler) ListWorkspaces(c *gin.Context) {
 
 	rows, err := h.service.ListWorkspaces(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 		return
 	}
 
@@ -176,28 +177,28 @@ func parseWorkspaceID(c *gin.Context) (int64, error) {
 func writeWorkspaceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrNotMember):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrInvalidRole), errors.Is(err, ErrCannotModifyOwner):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrUserNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrAlreadyMember):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrSlugTaken), errors.Is(err, ErrInvalidSlug):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
 		if err.Error() == "workspace name is required" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 			return
 		}
 		if err.Error() == "email is required" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

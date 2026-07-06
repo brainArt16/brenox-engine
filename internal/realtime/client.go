@@ -6,8 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/brainart16/brenox/internal/chat"
 	"github.com/brainart16/brenox/internal/calls"
+	"github.com/brainart16/brenox/internal/chat"
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gorilla/websocket"
 )
 
@@ -101,10 +102,10 @@ func (c *Client) handleSendMessageError(err error) {
 	case errors.Is(err, chat.ErrForbidden):
 		c.sendClientError("permission denied")
 	case errors.Is(err, chat.ErrEmptyContent), errors.Is(err, chat.ErrMessageTooLong):
-		c.sendClientError(err.Error())
+		c.sendClientError(httperr.Sanitize(err.Error()))
 	default:
 		slog.Error("message.send failed", "user_id", c.userID, "error", err)
-		c.sendClientError("failed to send message")
+		c.sendClientError(httperr.InternalMessage)
 	}
 }
 
@@ -122,7 +123,7 @@ func (c *Client) handleCallSignal(event Event) {
 
 	ctx, err := c.calls.ValidateSignal(context.Background(), callID, c.userID)
 	if err != nil {
-		c.sendClientError(err.Error())
+		c.sendCallError(err)
 		return
 	}
 
@@ -149,7 +150,7 @@ func (c *Client) handleCallMediaEvent(event Event) {
 
 	ctx, err := c.calls.ValidateSignal(context.Background(), callID, c.userID)
 	if err != nil {
-		c.sendClientError(err.Error())
+		c.sendCallError(err)
 		return
 	}
 
@@ -165,7 +166,7 @@ func (c *Client) handleCallMediaEvent(event Event) {
 		metadata, _ := payloadMap(event.Payload)
 		recording, err := c.calls.StartRecording(context.Background(), callID, c.userID, metadata)
 		if err != nil {
-			c.sendClientError(err.Error())
+			c.sendCallError(err)
 			return
 		}
 		payload["recording_id"] = recording.ID
@@ -178,7 +179,7 @@ func (c *Client) handleCallMediaEvent(event Event) {
 		}
 		recording, err := c.calls.StopRecording(context.Background(), callID, c.userID, recordingID)
 		if err != nil {
-			c.sendClientError(err.Error())
+			c.sendCallError(err)
 			return
 		}
 		payload["recording_id"] = recording.ID
@@ -213,13 +214,32 @@ func (c *Client) broadcastTyping(eventType string) {
 
 func (c *Client) sendClientError(message string) {
 	event := NewOutboundEvent("error", c.workspaceID, c.channelID, map[string]any{
-		"message": message,
+		"message": httperr.Sanitize(message),
 	})
 	select {
 	case c.send <- event:
 	default:
 		slog.Warn("client error dropped, send buffer full", "user_id", c.userID)
 	}
+}
+
+func (c *Client) sendCallError(err error) {
+	message := httperr.ClientMessage(err,
+		calls.ErrNotFound,
+		calls.ErrNotMember,
+		calls.ErrNotParticipant,
+		calls.ErrCallEnded,
+		calls.ErrCallAlreadyActive,
+		calls.ErrCallFull,
+		calls.ErrChannelNotFound,
+		calls.ErrRecordingActive,
+		calls.ErrRecordingNotFound,
+		calls.ErrInvalidMode,
+	)
+	if message == httperr.InternalMessage {
+		slog.Error("call websocket error", "user_id", c.userID, "error", err)
+	}
+	c.sendClientError(message)
 }
 
 func (c *Client) writePump() {

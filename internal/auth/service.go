@@ -6,6 +6,7 @@ import (
 
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/pkg/jwt"
+	"github.com/jackc/pgx/v5"
 )
 
 /*
@@ -52,9 +53,11 @@ func (s *Service) Register(
 		req.Email,
 	)
 
-	// 	If no error: user already exists.
 	if err == nil {
-		return nil, errors.New("email already exists")
+		return nil, ErrEmailExists
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrRegistrationFailed
 	}
 
 	// Hash password securely.
@@ -63,7 +66,7 @@ func (s *Service) Register(
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrRegistrationFailed
 	}
 
 	// Create user in database.
@@ -77,7 +80,7 @@ func (s *Service) Register(
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, ErrRegistrationFailed
 	}
 
 	return &user, nil
@@ -98,30 +101,24 @@ func (s *Service) Login(
 	)
 
 	if err != nil {
-		return "", errors.New(
-			"invalid credentials",
-		)
+		return "", ErrInvalidCredentials
 	}
 
-	// Compare password hash.
 	err = CheckPassword(
 		req.Password,
 		user.PasswordHash,
 	)
 
 	if err != nil {
-		return "", errors.New(
-			"invalid credentials",
-		)
+		return "", ErrInvalidCredentials
 	}
 
-	// Generate JWT token.
 	token, err := jwt.GenerateToken(
 		user.ID,
 	)
 
 	if err != nil {
-		return "", err
+		return "", ErrInvalidCredentials
 	}
 
 	return token, nil

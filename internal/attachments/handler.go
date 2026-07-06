@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -142,14 +143,14 @@ func parseMessageID(c *gin.Context) (int64, error) {
 func writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrStorageUnavailable):
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrInvalidFile), errors.Is(err, ErrFileTooLarge), errors.Is(err, ErrMimeNotAllowed), errors.Is(err, ErrObjectNotFound), errors.Is(err, ErrObjectKeyMismatch):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

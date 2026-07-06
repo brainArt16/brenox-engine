@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,7 +20,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) GetGlobalPresence(c *gin.Context) {
 	items, err := h.service.ListOnline(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 		return
 	}
 
@@ -67,7 +68,7 @@ func (h *Handler) GetMyStatus(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
 	presence, err := h.service.Get(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, presence)
@@ -85,10 +86,10 @@ func parseWorkspaceID(c *gin.Context) (int64, error) {
 func writePresenceError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidStatus):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrNotWorkspaceMember):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

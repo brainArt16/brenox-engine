@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -206,14 +207,14 @@ func parseWebhookID(c *gin.Context) (int64, error) {
 func writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound), errors.Is(err, ErrKeyNotFound), errors.Is(err, ErrWebhookNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrForbidden):
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrSlugTaken):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrNameRequired), errors.Is(err, ErrInvalidSlug), errors.Is(err, ErrWebhookURLRequired):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

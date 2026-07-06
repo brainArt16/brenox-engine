@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
 
@@ -60,16 +61,16 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 func writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrUsernameRequired):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrUsernameTaken):
-		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrInvalidPassword):
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrPasswordRequired), errors.Is(err, ErrPasswordTooShort):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

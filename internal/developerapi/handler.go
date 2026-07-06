@@ -2,6 +2,7 @@ package developerapi
 
 import (
 	"errors"
+	"github.com/brainart16/brenox/internal/httperr"
 	"net/http"
 	"strconv"
 
@@ -112,14 +113,14 @@ func appFromContext(c *gin.Context) db.App {
 func writeError(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, ErrChannelNotFound), errors.Is(err, ErrUserNotFound), errors.Is(err, ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		c.JSON(http.StatusNotFound, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrInvalidRequest), errors.Is(err, ErrEmptyContent):
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
 		if err != nil && err.Error() == "channel name already exists" {
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 	}
 }

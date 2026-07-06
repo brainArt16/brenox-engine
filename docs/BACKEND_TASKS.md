@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-06-22 (Kubernetes deploy scaffold)
+> **Last updated:** 2026-07-07 (Sanitized client-facing errors)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -553,6 +553,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Sanitized HTTP and WebSocket error responses so internal infrastructure details stay server-side |
 | 2026-07-05 | `POST /v1/channels` idempotent on duplicate name — returns existing channel in app workspace (embed demo bootstrap) |
 | 2026-07-05 | `POST /v1/sessions` — issue user JWT for embed SDK clients; optional channel auto-join; BrenoxServer.sessions in SDK |
 | 2026-07-05 | Engine release versioning: `GET /version`, prod API `https://api.breno-x.com` |

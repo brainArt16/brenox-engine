@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/calls"
 	"github.com/brainart16/brenox/internal/channels"
 	"github.com/brainart16/brenox/internal/chat"
-	"github.com/brainart16/brenox/internal/calls"
+	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -59,7 +60,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 
 	isWorkspaceMember, err := h.channels.IsWorkspaceMember(c.Request.Context(), workspaceID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 		return
 	}
 	if !isWorkspaceMember {
@@ -74,7 +75,7 @@ func (h *Handler) HandleWebSocket(c *gin.Context) {
 
 	isMember, err := h.channels.IsMember(c.Request.Context(), channelID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		httperr.WriteInternal(c, err)
 		return
 	}
 	if !isMember {

@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
@@ -32,26 +31,26 @@ func (s *Service) ValidateAccessToken(ctx context.Context, tokenString string) (
 func (s *Service) Refresh(ctx context.Context, tokenString string) (string, error) {
 	claims, err := jwt.ValidateTokenForRefresh(tokenString)
 	if err != nil {
-		return "", errors.New("invalid or expired token")
+		return "", ErrInvalidToken
 	}
 
 	if claims.ID != "" {
 		revoked, err := s.queries.IsTokenRevoked(ctx, claims.ID)
 		if err != nil {
-			return "", errors.New("invalid or expired token")
+			return "", ErrInvalidToken
 		}
 		if revoked {
-			return "", errors.New("invalid or expired token")
+			return "", ErrInvalidToken
 		}
 	}
 
 	if _, err := s.queries.GetUserByID(ctx, claims.UserID); err != nil {
-		return "", errors.New("invalid or expired token")
+		return "", ErrInvalidToken
 	}
 
 	newToken, err := jwt.GenerateToken(claims.UserID)
 	if err != nil {
-		return "", err
+		return "", ErrInvalidToken
 	}
 
 	if claims.ID != "" {

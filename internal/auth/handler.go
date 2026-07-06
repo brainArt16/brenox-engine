@@ -1,9 +1,12 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/brainart16/brenox/internal/httperr"
+	"github.com/brainart16/brenox/pkg/jwt"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,11 +43,10 @@ func (h *Handler) Register(
 
 	if err != nil {
 
-		c.JSON(
+		httperr.WriteJSON(
+			c,
 			http.StatusBadRequest,
-			gin.H{
-				"error": "invalid request body",
-			},
+			"invalid request body",
 		)
 
 		return
@@ -59,13 +61,7 @@ func (h *Handler) Register(
 
 	if err != nil {
 
-		c.JSON(
-			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
-		)
-
+		writeAuthError(c, err)
 		return
 	}
 
@@ -74,13 +70,12 @@ func (h *Handler) Register(
 	c.JSON(
 		http.StatusCreated,
 		gin.H{
-			"id": user.ID,
-			"email": user.Email,
+			"id":       user.ID,
+			"email":    user.Email,
 			"username": user.Username,
 		},
 	)
 }
-
 
 // Login endpoint handler.
 func (h *Handler) Login(
@@ -93,11 +88,10 @@ func (h *Handler) Login(
 
 	if err != nil {
 
-		c.JSON(
+		httperr.WriteJSON(
+			c,
 			http.StatusBadRequest,
-			gin.H{
-				"error": "invalid request",
-			},
+			"invalid request",
 		)
 
 		return
@@ -110,13 +104,7 @@ func (h *Handler) Login(
 
 	if err != nil {
 
-		c.JSON(
-			http.StatusUnauthorized,
-			gin.H{
-				"error": err.Error(),
-			},
-		)
-
+		writeAuthError(c, err)
 		return
 	}
 
@@ -133,7 +121,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 	if !ok {
 		var req refreshRequest
 		if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Token) == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "token required"})
+			httperr.WriteJSON(c, http.StatusBadRequest, "token required")
 			return
 		}
 		tokenString = req.Token
@@ -141,11 +129,26 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 	token, err := h.service.Refresh(c.Request.Context(), tokenString)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		writeAuthError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"token": token})
+}
+
+func writeAuthError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, ErrEmailExists):
+		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrEmailExists))
+	case errors.Is(err, ErrRegistrationFailed):
+		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrRegistrationFailed))
+	case errors.Is(err, ErrInvalidCredentials):
+		httperr.WriteJSON(c, http.StatusUnauthorized, httperr.ClientMessage(err, ErrInvalidCredentials))
+	case errors.Is(err, ErrInvalidToken), errors.Is(err, jwt.ErrTokenInvalid), errors.Is(err, jwt.ErrTokenRevoked):
+		httperr.WriteJSON(c, http.StatusUnauthorized, httperr.ClientMessage(err, ErrInvalidToken, jwt.ErrTokenInvalid, jwt.ErrTokenRevoked))
+	default:
+		httperr.WriteInternal(c, err)
+	}
 }
 
 func bearerToken(c *gin.Context) (string, bool) {
