@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
@@ -109,10 +110,79 @@ func (h *Handler) ListApps(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"apps": apps})
 }
 
+func (h *Handler) GetApp(c *gin.Context) {
+	appID, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	app, err := h.service.GetApp(c.Request.Context(), appID)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, app)
+}
+
+func (h *Handler) ListAppKeys(c *gin.Context) {
+	appID, ok := parseID(c, "app_id")
+	if !ok {
+		return
+	}
+
+	keys, err := h.service.ListAppKeys(c.Request.Context(), appID)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"keys": keys})
+}
+
+func (h *Handler) RevokeAppKey(c *gin.Context) {
+	appID, ok := parseID(c, "app_id")
+	if !ok {
+		return
+	}
+	keyID, ok := parseID(c, "key_id")
+	if !ok {
+		return
+	}
+
+	if err := h.service.RevokeAppKey(c.Request.Context(), appID, keyID); err != nil {
+		writeError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) ListWorkspaceMembers(c *gin.Context) {
+	workspaceID, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	members, err := h.service.ListWorkspaceMembers(c.Request.Context(), workspaceID)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"members": members})
+}
+
 func (h *Handler) ListAuditLogs(c *gin.Context) {
 	limit, offset := pagination(c)
 
-	logs, err := h.service.ListAuditLogs(c.Request.Context(), limit, offset)
+	var userID *int64
+	if raw := strings.TrimSpace(c.Query("user_id")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil {
+			httperr.WriteJSON(c, http.StatusBadRequest, "invalid user_id")
+			return
+		}
+		userID = &parsed
+	}
+
+	logs, err := h.service.ListAuditLogs(c.Request.Context(), userID, c.Query("action"), limit, offset)
 	if err != nil {
 		httperr.WriteInternal(c, err)
 		return
@@ -158,6 +228,8 @@ func writeError(c *gin.Context, err error) {
 		httperr.WriteJSON(c, http.StatusConflict, httperr.ClientMessage(err, ErrSelfDemotion, ErrSelfSuspend))
 	case errors.Is(err, ErrInvalidRequest):
 		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrInvalidRequest))
+	case errors.Is(err, ErrKeyNotFound):
+		httperr.WriteJSON(c, http.StatusNotFound, httperr.ClientMessage(err, ErrKeyNotFound))
 	default:
 		httperr.WriteInternal(c, err)
 	}

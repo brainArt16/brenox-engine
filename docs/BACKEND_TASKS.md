@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-07-07 (Phase 15 — Platform admin MVP)
+> **Last updated:** 2026-07-07 (Phase 15B — Admin detail & emergency ops)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -476,6 +476,18 @@ messages
 | 15.6 | Suspend + token invalidation in JWT validation | [x] |
 | 15.7 | Web: `/admin` panel (overview, users, workspaces, apps, audit) | [x] |
 
+### Phase 15B — Admin detail & emergency ops
+
+**Exit criteria:** Detail endpoints for users/apps/workspaces; cross-tenant API key revoke; audit filters; web detail pages.
+
+| # | Task | Status |
+|---|------|--------|
+| 15.8 | `GET /api/admin/apps/:id`, `GET /api/admin/apps/:app_id/keys` | [x] |
+| 15.9 | `DELETE /api/admin/apps/:app_id/keys/:key_id` — emergency revoke (admin only) | [x] |
+| 15.10 | `GET /api/admin/workspaces/:id/members` | [x] |
+| 15.11 | Audit log filters: `?user_id=`, `?action=`, pagination | [x] |
+| 15.12 | Web: user/workspace/app detail pages; audit filters | [x] |
+
 ---
 
 ## Dependency Graph
@@ -571,6 +583,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Phase 15B: admin app detail + cross-tenant key revoke, workspace members, audit filters, web detail pages |
 | 2026-07-07 | Health check reports pending migrations; startup logs error when schema is behind (fixes prod audit_logs / register failures) |
 | 2026-07-07 | Phase 15 MVP: platform admin API (`/api/admin/*`), roles, suspend + JWT invalidation, web admin panel |
 | 2026-07-07 | Sanitized HTTP and WebSocket error responses so internal infrastructure details stay server-side |

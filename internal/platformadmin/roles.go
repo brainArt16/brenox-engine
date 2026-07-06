@@ -9,6 +9,7 @@ var (
 	ErrSelfDemotion  = errors.New("cannot change your own platform role")
 	ErrSelfSuspend   = errors.New("cannot suspend your own account")
 	ErrInvalidRequest = errors.New("invalid request")
+	ErrKeyNotFound    = errors.New("api key not found")
 )
 
 const (

@@ -129,17 +129,51 @@ INNER JOIN users u ON u.id = a.owner_id
 ORDER BY a.created_at DESC
 LIMIT $1 OFFSET $2;
 
+-- name: GetAppAdmin :one
+SELECT
+    a.id,
+    a.name,
+    a.slug,
+    a.workspace_id,
+    a.owner_id,
+    a.created_at,
+    u.email AS owner_email
+FROM apps a
+INNER JOIN users u ON u.id = a.owner_id
+WHERE a.id = $1;
+
 -- name: ListAuditLogsAdmin :many
 SELECT
-    id,
-    user_id,
-    app_id,
-    action,
-    method,
-    path,
-    ip_address,
-    status_code,
-    created_at
-FROM audit_logs
-ORDER BY created_at DESC
+    al.id,
+    al.user_id,
+    u.username AS username,
+    al.app_id,
+    al.action,
+    al.method,
+    al.path,
+    al.ip_address,
+    al.status_code,
+    al.created_at
+FROM audit_logs al
+LEFT JOIN users u ON u.id = al.user_id
+ORDER BY al.created_at DESC
 LIMIT $1 OFFSET $2;
+
+-- name: ListAuditLogsAdminFiltered :many
+SELECT
+    al.id,
+    al.user_id,
+    u.username AS username,
+    al.app_id,
+    al.action,
+    al.method,
+    al.path,
+    al.ip_address,
+    al.status_code,
+    al.created_at
+FROM audit_logs al
+LEFT JOIN users u ON u.id = al.user_id
+WHERE (sqlc.narg('user_id')::bigint IS NULL OR al.user_id = sqlc.narg('user_id'))
+  AND (COALESCE(sqlc.narg('action')::text, '') = '' OR al.action = sqlc.narg('action'))
+ORDER BY al.created_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');

@@ -96,6 +96,45 @@ func (q *Queries) CountWorkspaceMembers(ctx context.Context, workspaceID int64) 
 	return count, err
 }
 
+const getAppAdmin = `-- name: GetAppAdmin :one
+SELECT
+    a.id,
+    a.name,
+    a.slug,
+    a.workspace_id,
+    a.owner_id,
+    a.created_at,
+    u.email AS owner_email
+FROM apps a
+INNER JOIN users u ON u.id = a.owner_id
+WHERE a.id = $1
+`
+
+type GetAppAdminRow struct {
+	ID          int64
+	Name        string
+	Slug        string
+	WorkspaceID int64
+	OwnerID     int64
+	CreatedAt   pgtype.Timestamptz
+	OwnerEmail  string
+}
+
+func (q *Queries) GetAppAdmin(ctx context.Context, id int64) (GetAppAdminRow, error) {
+	row := q.db.QueryRow(ctx, getAppAdmin, id)
+	var i GetAppAdminRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.WorkspaceID,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.OwnerEmail,
+	)
+	return i, err
+}
+
 const getUserAdmin = `-- name: GetUserAdmin :one
 SELECT
     id,
@@ -220,17 +259,19 @@ func (q *Queries) ListAppsAdmin(ctx context.Context, arg ListAppsAdminParams) ([
 
 const listAuditLogsAdmin = `-- name: ListAuditLogsAdmin :many
 SELECT
-    id,
-    user_id,
-    app_id,
-    action,
-    method,
-    path,
-    ip_address,
-    status_code,
-    created_at
-FROM audit_logs
-ORDER BY created_at DESC
+    al.id,
+    al.user_id,
+    u.username AS username,
+    al.app_id,
+    al.action,
+    al.method,
+    al.path,
+    al.ip_address,
+    al.status_code,
+    al.created_at
+FROM audit_logs al
+LEFT JOIN users u ON u.id = al.user_id
+ORDER BY al.created_at DESC
 LIMIT $1 OFFSET $2
 `
 
@@ -239,18 +280,108 @@ type ListAuditLogsAdminParams struct {
 	Offset int32
 }
 
-func (q *Queries) ListAuditLogsAdmin(ctx context.Context, arg ListAuditLogsAdminParams) ([]AuditLog, error) {
+type ListAuditLogsAdminRow struct {
+	ID         int64
+	UserID     pgtype.Int8
+	Username   pgtype.Text
+	AppID      pgtype.Int8
+	Action     string
+	Method     string
+	Path       string
+	IpAddress  pgtype.Text
+	StatusCode pgtype.Int4
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) ListAuditLogsAdmin(ctx context.Context, arg ListAuditLogsAdminParams) ([]ListAuditLogsAdminRow, error) {
 	rows, err := q.db.Query(ctx, listAuditLogsAdmin, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AuditLog
+	var items []ListAuditLogsAdminRow
 	for rows.Next() {
-		var i AuditLog
+		var i ListAuditLogsAdminRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
+			&i.Username,
+			&i.AppID,
+			&i.Action,
+			&i.Method,
+			&i.Path,
+			&i.IpAddress,
+			&i.StatusCode,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditLogsAdminFiltered = `-- name: ListAuditLogsAdminFiltered :many
+SELECT
+    al.id,
+    al.user_id,
+    u.username AS username,
+    al.app_id,
+    al.action,
+    al.method,
+    al.path,
+    al.ip_address,
+    al.status_code,
+    al.created_at
+FROM audit_logs al
+LEFT JOIN users u ON u.id = al.user_id
+WHERE ($1::bigint IS NULL OR al.user_id = $1)
+  AND (COALESCE($2::text, '') = '' OR al.action = $2)
+ORDER BY al.created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListAuditLogsAdminFilteredParams struct {
+	UserID pgtype.Int8
+	Action pgtype.Text
+	Offset int32
+	Limit  int32
+}
+
+type ListAuditLogsAdminFilteredRow struct {
+	ID         int64
+	UserID     pgtype.Int8
+	Username   pgtype.Text
+	AppID      pgtype.Int8
+	Action     string
+	Method     string
+	Path       string
+	IpAddress  pgtype.Text
+	StatusCode pgtype.Int4
+	CreatedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) ListAuditLogsAdminFiltered(ctx context.Context, arg ListAuditLogsAdminFilteredParams) ([]ListAuditLogsAdminFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listAuditLogsAdminFiltered,
+		arg.UserID,
+		arg.Action,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAuditLogsAdminFilteredRow
+	for rows.Next() {
+		var i ListAuditLogsAdminFilteredRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Username,
 			&i.AppID,
 			&i.Action,
 			&i.Method,

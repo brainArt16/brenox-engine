@@ -222,7 +222,11 @@ func main() {
 	admin.PATCH("/users/:id", middleware.RequirePlatformWrite(), platformAdminHandler.UpdateUser)
 	admin.GET("/workspaces", platformAdminHandler.ListWorkspaces)
 	admin.GET("/workspaces/:id", platformAdminHandler.GetWorkspace)
+	admin.GET("/workspaces/:id/members", platformAdminHandler.ListWorkspaceMembers)
 	admin.GET("/apps", platformAdminHandler.ListApps)
+	admin.GET("/apps/:id", platformAdminHandler.GetApp)
+	admin.GET("/apps/:app_id/keys", platformAdminHandler.ListAppKeys)
+	admin.DELETE("/apps/:app_id/keys/:key_id", middleware.RequirePlatformWrite(), platformAdminHandler.RevokeAppKey)
 	admin.GET("/audit-logs", platformAdminHandler.ListAuditLogs)
 
 	v1 := router.Group("/v1")

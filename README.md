@@ -199,8 +199,12 @@ All channel and message routes are scoped under a workspace.
 | PATCH | `/api/admin/users/:id` | JWT (admin) | Suspend/unsuspend or change platform role |
 | GET | `/api/admin/workspaces` | JWT (support+) | List all workspaces |
 | GET | `/api/admin/workspaces/:id` | JWT (support+) | Workspace detail |
+| GET | `/api/admin/workspaces/:id/members` | JWT (support+) | Workspace members (cross-tenant) |
 | GET | `/api/admin/apps` | JWT (support+) | List all developer apps |
-| GET | `/api/admin/audit-logs` | JWT (support+) | Recent audit log entries |
+| GET | `/api/admin/apps/:id` | JWT (support+) | App detail |
+| GET | `/api/admin/apps/:app_id/keys` | JWT (support+) | List API keys for any app |
+| DELETE | `/api/admin/apps/:app_id/keys/:key_id` | JWT (admin) | Emergency cross-tenant API key revoke |
+| GET | `/api/admin/audit-logs` | JWT (support+) | Audit log entries (`?user_id=`, `?action=`, pagination) |
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |

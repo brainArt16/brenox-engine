@@ -794,7 +794,7 @@
     },
     {
       "name": "Platform Admin",
-      "description": "Requires JWT for a user with platform_role support or admin. Write routes (PATCH user) require admin.",
+      "description": "Requires JWT for a user with platform_role support or admin. Write routes (PATCH user, DELETE app key) require admin.",
       "item": [
         {
           "name": "Overview",
@@ -847,6 +847,22 @@
           }
         },
         {
+          "name": "Get Workspace",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/workspaces/1"
+          }
+        },
+        {
+          "name": "List Workspace Members",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/workspaces/1/members"
+          }
+        },
+        {
           "name": "List Apps",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
@@ -855,11 +871,45 @@
           }
         },
         {
+          "name": "Get App",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/apps/1"
+          }
+        },
+        {
+          "name": "List App Keys",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/apps/1/keys"
+          }
+        },
+        {
+          "name": "Revoke App Key (emergency)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/api/admin/apps/1/keys/1",
+            "description": "Admin only. Cross-tenant emergency revoke — does not require app ownership."
+          }
+        },
+        {
           "name": "List Audit Logs",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": "{{baseUrl}}/api/admin/audit-logs"
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit-logs?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "audit-logs"],
+              "query": [
+                { "key": "limit", "value": "50" },
+                { "key": "user_id", "value": "1", "disabled": true },
+                { "key": "action", "value": "auth.login", "disabled": true }
+              ]
+            }
           }
         }
       ]

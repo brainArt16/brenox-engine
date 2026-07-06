@@ -64,9 +64,30 @@ type AppListItem struct {
 	CreatedAt   string `json:"created_at"`
 }
 
+type APIKeyItem struct {
+	ID        int64  `json:"id"`
+	AppID     int64  `json:"app_id"`
+	Name      string `json:"name"`
+	KeyPrefix string `json:"key_prefix"`
+	IsSandbox bool   `json:"is_sandbox"`
+	CreatedAt string `json:"created_at"`
+	RevokedAt string `json:"revoked_at,omitempty"`
+	LastUsed  string `json:"last_used_at,omitempty"`
+}
+
+type WorkspaceMemberItem struct {
+	ID        int64  `json:"id"`
+	UserID    int64  `json:"user_id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"created_at"`
+}
+
 type AuditLogItem struct {
 	ID         int64   `json:"id"`
 	UserID     *int64  `json:"user_id,omitempty"`
+	Username   string  `json:"username,omitempty"`
 	AppID      *int64  `json:"app_id,omitempty"`
 	Action     string  `json:"action"`
 	Method     string  `json:"method"`
@@ -293,52 +314,197 @@ func (s *Service) ListApps(ctx context.Context, limit, offset int32) ([]AppListI
 
 	items := make([]AppListItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, AppListItem{
-			ID:          row.ID,
-			Name:        row.Name,
-			Slug:        row.Slug,
-			WorkspaceID: row.WorkspaceID,
-			OwnerID:     row.OwnerID,
-			OwnerEmail:  row.OwnerEmail,
-			CreatedAt:   formatTime(row.CreatedAt),
+		items = append(items, toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt))
+	}
+	return items, nil
+}
+
+func (s *Service) GetApp(ctx context.Context, appID int64) (AppListItem, error) {
+	row, err := s.queries.GetAppAdmin(ctx, appID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AppListItem{}, ErrNotFound
+		}
+		return AppListItem{}, err
+	}
+	return toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt), nil
+}
+
+func (s *Service) ListAppKeys(ctx context.Context, appID int64) ([]APIKeyItem, error) {
+	if _, err := s.queries.GetAppAdmin(ctx, appID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	rows, err := s.queries.ListAPIKeysByApp(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]APIKeyItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, toAPIKeyItem(row))
+	}
+	return items, nil
+}
+
+func (s *Service) RevokeAppKey(ctx context.Context, appID, keyID int64) error {
+	if _, err := s.queries.GetAppAdmin(ctx, appID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+
+	_, err := s.queries.RevokeAPIKey(ctx, db.RevokeAPIKeyParams{
+		ID:    keyID,
+		AppID: appID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrKeyNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *Service) ListWorkspaceMembers(ctx context.Context, workspaceID int64) ([]WorkspaceMemberItem, error) {
+	if _, err := s.queries.GetWorkspaceAdmin(ctx, workspaceID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	rows, err := s.queries.ListWorkspaceMembers(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]WorkspaceMemberItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, WorkspaceMemberItem{
+			ID:        row.ID,
+			UserID:    row.UserID,
+			Username:  row.Username,
+			Email:     row.Email,
+			Role:      row.Role,
+			CreatedAt: formatTime(row.CreatedAt),
 		})
 	}
 	return items, nil
 }
 
-func (s *Service) ListAuditLogs(ctx context.Context, limit, offset int32) ([]AuditLogItem, error) {
-	rows, err := s.queries.ListAuditLogsAdmin(ctx, db.ListAuditLogsAdminParams{
-		Limit:  limit,
-		Offset: offset,
-	})
-	if err != nil {
-		return nil, err
+func (s *Service) ListAuditLogs(ctx context.Context, userID *int64, action string, limit, offset int32) ([]AuditLogItem, error) {
+	action = strings.TrimSpace(action)
+	hasFilter := userID != nil || action != ""
+
+	items := make([]AuditLogItem, 0)
+
+	if hasFilter {
+		params := db.ListAuditLogsAdminFilteredParams{
+			Action: pgtype.Text{String: action, Valid: action != ""},
+			Limit:  limit,
+			Offset: offset,
+		}
+		if userID != nil {
+			params.UserID = pgtype.Int8{Int64: *userID, Valid: true}
+		}
+		rows, err := s.queries.ListAuditLogsAdminFiltered(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			items = append(items, auditLogRowToItem(
+				row.ID, row.UserID, row.Username, row.AppID,
+				row.Action, row.Method, row.Path, row.IpAddress, row.StatusCode, row.CreatedAt,
+			))
+		}
+	} else {
+		rows, err := s.queries.ListAuditLogsAdmin(ctx, db.ListAuditLogsAdminParams{
+			Limit:  limit,
+			Offset: offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			items = append(items, auditLogRowToItem(
+				row.ID, row.UserID, row.Username, row.AppID,
+				row.Action, row.Method, row.Path, row.IpAddress, row.StatusCode, row.CreatedAt,
+			))
+		}
 	}
 
-	items := make([]AuditLogItem, 0, len(rows))
-	for _, row := range rows {
-		item := AuditLogItem{
-			ID:        row.ID,
-			Action:    row.Action,
-			Method:    row.Method,
-			Path:      row.Path,
-			CreatedAt: formatTime(row.CreatedAt),
-		}
-		if row.UserID.Valid {
-			item.UserID = &row.UserID.Int64
-		}
-		if row.AppID.Valid {
-			item.AppID = &row.AppID.Int64
-		}
-		if row.IpAddress.Valid {
-			item.IPAddress = &row.IpAddress.String
-		}
-		if row.StatusCode.Valid {
-			item.StatusCode = &row.StatusCode.Int32
-		}
-		items = append(items, item)
-	}
 	return items, nil
+}
+
+func toAppListItem(id int64, name, slug string, workspaceID, ownerID int64, ownerEmail string, createdAt pgtype.Timestamptz) AppListItem {
+	return AppListItem{
+		ID:          id,
+		Name:        name,
+		Slug:        slug,
+		WorkspaceID: workspaceID,
+		OwnerID:     ownerID,
+		OwnerEmail:  ownerEmail,
+		CreatedAt:   formatTime(createdAt),
+	}
+}
+
+func toAPIKeyItem(key db.ApiKey) APIKeyItem {
+	item := APIKeyItem{
+		ID:        key.ID,
+		AppID:     key.AppID,
+		Name:      key.Name,
+		KeyPrefix: key.KeyPrefix,
+		IsSandbox: key.IsSandbox,
+		CreatedAt: formatTime(key.CreatedAt),
+	}
+	if key.RevokedAt.Valid {
+		item.RevokedAt = formatTime(key.RevokedAt)
+	}
+	if key.LastUsedAt.Valid {
+		item.LastUsed = formatTime(key.LastUsedAt)
+	}
+	return item
+}
+
+func auditLogRowToItem(
+	id int64,
+	userID pgtype.Int8,
+	username pgtype.Text,
+	appID pgtype.Int8,
+	action, method, path string,
+	ipAddress pgtype.Text,
+	statusCode pgtype.Int4,
+	createdAt pgtype.Timestamptz,
+) AuditLogItem {
+	item := AuditLogItem{
+		ID:        id,
+		Action:    action,
+		Method:    method,
+		Path:      path,
+		CreatedAt: formatTime(createdAt),
+	}
+	if userID.Valid {
+		item.UserID = &userID.Int64
+	}
+	if username.Valid {
+		item.Username = username.String
+	}
+	if appID.Valid {
+		item.AppID = &appID.Int64
+	}
+	if ipAddress.Valid {
+		item.IPAddress = &ipAddress.String
+	}
+	if statusCode.Valid {
+		item.StatusCode = &statusCode.Int32
+	}
+	return item
 }
 
 func toUserListItem(id int64, email, username, role string, suspendedAt, createdAt pgtype.Timestamptz) UserListItem {
