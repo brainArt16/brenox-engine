@@ -36,3 +36,13 @@ RETURNING *;
 UPDATE users
 SET password_hash = $2
 WHERE id = $1;
+
+-- name: GetUserAuthState :one
+SELECT
+    id,
+    email,
+    platform_role,
+    suspended_at,
+    tokens_invalidated_at
+FROM users
+WHERE id = $1;

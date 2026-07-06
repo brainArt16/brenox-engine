@@ -44,6 +44,7 @@ brenox-engine/
 │   ├── apps/                       # Developer apps + API key management
 │   ├── developerapi/               # Public /v1 API for third-party integrations
 │   ├── users/                      # User profile API
+│   ├── platformadmin/            # Platform admin API (cross-tenant)
 │   ├── webhooks/                   # Webhook delivery dispatcher
 │   ├── ratelimit/                  # API key rate limiting
 │   ├── redis/                      # Redis client wrapper
@@ -187,11 +188,19 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/notifications/read-all` | JWT | Mark all notifications read |
 | GET | `/api/presence` | JWT | Globally online users (status, last_seen) |
 | GET | `/api/workspaces/:workspace_id/presence` | JWT | Online members in workspace |
-| GET | `/api/users/me` | JWT | Current user profile |
+| GET | `/api/users/me` | JWT | Current user profile (`platform_role`, `suspended`) |
 | PATCH | `/api/users/me` | JWT | Update username |
 | PATCH | `/api/users/me/password` | JWT | Change password (requires current password) |
 | GET | `/api/users/me/status` | JWT | Current presence status |
 | PATCH | `/api/users/me/status` | JWT | Set presence status (`online`, `away`, `offline`) |
+| GET | `/api/admin/overview` | JWT (support+) | Platform counts (users, workspaces, apps) |
+| GET | `/api/admin/users` | JWT (support+) | List/search platform users |
+| GET | `/api/admin/users/:id` | JWT (support+) | User detail |
+| PATCH | `/api/admin/users/:id` | JWT (admin) | Suspend/unsuspend or change platform role |
+| GET | `/api/admin/workspaces` | JWT (support+) | List all workspaces |
+| GET | `/api/admin/workspaces/:id` | JWT (support+) | Workspace detail |
+| GET | `/api/admin/apps` | JWT (support+) | List all developer apps |
+| GET | `/api/admin/audit-logs` | JWT (support+) | Recent audit log entries |
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |
@@ -211,7 +220,7 @@ All channel and message routes are scoped under a workspace.
 | GET | `/v1/messages?channel_id=` | API key | List channel messages |
 | GET | `/api/ws?workspace_id=&channel_id=` | JWT (header or `?token=`) | WebSocket upgrade |
 
-WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Graceful shutdown closes active WebSocket connections on SIGTERM.
+WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade URL. Connection limits and allowed origins are configurable via env (see `.env.example`). Set `PLATFORM_ADMIN_EMAILS` (comma-separated) to bootstrap platform admins. Graceful shutdown closes active WebSocket connections on SIGTERM.
 
 Voice and video call signaling (`call.offer`, `call.answer`, `call.ice`, `call.video.*`, etc.) is sent over the channel WebSocket. See [docs/WEBRTC.md](docs/WEBRTC.md) and [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md).
 

@@ -30,10 +30,12 @@ func NewService(queries *db.Queries) *Service {
 }
 
 type ProfileResponse struct {
-	ID        int64  `json:"id"`
-	Email     string `json:"email"`
-	Username  string `json:"username"`
-	CreatedAt string `json:"created_at"`
+	ID           int64  `json:"id"`
+	Email        string `json:"email"`
+	Username     string `json:"username"`
+	PlatformRole string `json:"platform_role"`
+	Suspended    bool   `json:"suspended"`
+	CreatedAt    string `json:"created_at"`
 }
 
 type UpdateProfileRequest struct {
@@ -120,10 +122,12 @@ func (s *Service) ChangePassword(ctx context.Context, userID int64, req ChangePa
 
 func toProfileResponse(user db.User) ProfileResponse {
 	return ProfileResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Username:  user.Username,
-		CreatedAt: formatTime(user.CreatedAt),
+		ID:           user.ID,
+		Email:        user.Email,
+		Username:     user.Username,
+		PlatformRole: user.PlatformRole,
+		Suspended:    user.SuspendedAt.Valid,
+		CreatedAt:    formatTime(user.CreatedAt),
 	}
 }
 

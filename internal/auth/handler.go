@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -10,25 +11,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-/*
-	Handler layer:
-	- receives HTTP request
-	- validates/parses request
-	- calls service layer
-	- returns JSON response
-*/
-
-type Handler struct {
-	service *Service
+type AdminBootstrapper interface {
+	SyncBootstrapAdmin(ctx context.Context, email string) error
 }
 
-func NewHandler(
-	service *Service,
-) *Handler {
+type Handler struct {
+	service   *Service
+	bootstrap AdminBootstrapper
+}
 
-	return &Handler{
-		service: service,
+func NewHandler(service *Service) *Handler {
+	return &Handler{service: service}
+}
+
+func (h *Handler) SetAdminBootstrap(bootstrap AdminBootstrapper) {
+	h.bootstrap = bootstrap
+}
+
+func (h *Handler) syncAdmin(ctx context.Context, email string) {
+	if h.bootstrap == nil {
+		return
 	}
+	_ = h.bootstrap.SyncBootstrapAdmin(ctx, email)
 }
 
 // Register endpoint handler.
@@ -60,12 +64,11 @@ func (h *Handler) Register(
 	)
 
 	if err != nil {
-
 		writeAuthError(c, err)
 		return
 	}
 
-	// Return successful response.
+	h.syncAdmin(c.Request.Context(), user.Email)
 
 	c.JSON(
 		http.StatusCreated,
@@ -103,10 +106,11 @@ func (h *Handler) Login(
 	)
 
 	if err != nil {
-
 		writeAuthError(c, err)
 		return
 	}
+
+	h.syncAdmin(c.Request.Context(), req.Email)
 
 	c.JSON(
 		http.StatusOK,
@@ -144,6 +148,8 @@ func writeAuthError(c *gin.Context, err error) {
 		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrRegistrationFailed))
 	case errors.Is(err, ErrInvalidCredentials):
 		httperr.WriteJSON(c, http.StatusUnauthorized, httperr.ClientMessage(err, ErrInvalidCredentials))
+	case errors.Is(err, ErrAccountSuspended):
+		httperr.WriteJSON(c, http.StatusForbidden, httperr.ClientMessage(err, ErrAccountSuspended))
 	case errors.Is(err, ErrInvalidToken), errors.Is(err, jwt.ErrTokenInvalid), errors.Is(err, jwt.ErrTokenRevoked):
 		httperr.WriteJSON(c, http.StatusUnauthorized, httperr.ClientMessage(err, ErrInvalidToken, jwt.ErrTokenInvalid, jwt.ErrTokenRevoked))
 	default:

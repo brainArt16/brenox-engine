@@ -151,11 +151,14 @@ type RevokedToken struct {
 }
 
 type User struct {
-	ID           int64
-	Email        string
-	Username     string
-	PasswordHash string
-	CreatedAt    pgtype.Timestamptz
+	ID                  int64
+	Email               string
+	Username            string
+	PasswordHash        string
+	CreatedAt           pgtype.Timestamptz
+	PlatformRole        string
+	SuspendedAt         pgtype.Timestamptz
+	TokensInvalidatedAt pgtype.Timestamptz
 }
 
 type Webhook struct {

@@ -25,6 +25,21 @@ func (s *Service) ValidateAccessToken(ctx context.Context, tokenString string) (
 		}
 	}
 
+	state, err := s.queries.GetUserAuthState(ctx, claims.UserID)
+	if err != nil {
+		return 0, err
+	}
+
+	if state.SuspendedAt.Valid {
+		return 0, ErrAccountSuspended
+	}
+
+	if state.TokensInvalidatedAt.Valid && claims.IssuedAt != nil {
+		if claims.IssuedAt.Time.Before(state.TokensInvalidatedAt.Time) {
+			return 0, jwt.ErrTokenRevoked
+		}
+	}
+
 	return claims.UserID, nil
 }
 
@@ -44,8 +59,19 @@ func (s *Service) Refresh(ctx context.Context, tokenString string) (string, erro
 		}
 	}
 
-	if _, err := s.queries.GetUserByID(ctx, claims.UserID); err != nil {
+	state, err := s.queries.GetUserAuthState(ctx, claims.UserID)
+	if err != nil {
 		return "", ErrInvalidToken
+	}
+
+	if state.SuspendedAt.Valid {
+		return "", ErrAccountSuspended
+	}
+
+	if state.TokensInvalidatedAt.Valid && claims.IssuedAt != nil {
+		if claims.IssuedAt.Time.Before(state.TokensInvalidatedAt.Time) {
+			return "", ErrInvalidToken
+		}
 	}
 
 	newToken, err := jwt.GenerateToken(claims.UserID)

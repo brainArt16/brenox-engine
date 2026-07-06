@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -20,7 +22,7 @@ VALUES (
     $2,
     $3
 )
-RETURNING id, email, username, password_hash, created_at
+RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
 `
 
 type CreateUserParams struct {
@@ -38,12 +40,47 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Username,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
+	)
+	return i, err
+}
+
+const getUserAuthState = `-- name: GetUserAuthState :one
+SELECT
+    id,
+    email,
+    platform_role,
+    suspended_at,
+    tokens_invalidated_at
+FROM users
+WHERE id = $1
+`
+
+type GetUserAuthStateRow struct {
+	ID                  int64
+	Email               string
+	PlatformRole        string
+	SuspendedAt         pgtype.Timestamptz
+	TokensInvalidatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) GetUserAuthState(ctx context.Context, id int64) (GetUserAuthStateRow, error) {
+	row := q.db.QueryRow(ctx, getUserAuthState, id)
+	var i GetUserAuthStateRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, created_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
 FROM users
 WHERE email = $1
 `
@@ -57,12 +94,15 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.Username,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, password_hash, created_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
 FROM users
 WHERE id = $1
 `
@@ -76,12 +116,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.Username,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, email, username, password_hash, created_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
 FROM users
 WHERE LOWER(username) = LOWER($1)
 `
@@ -95,6 +138,9 @@ func (q *Queries) GetUserByUsername(ctx context.Context, lower string) (User, er
 		&i.Username,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
 	)
 	return i, err
 }
@@ -119,7 +165,7 @@ const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
 SET username = $2
 WHERE id = $1
-RETURNING id, email, username, password_hash, created_at
+RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
 `
 
 type UpdateUserProfileParams struct {
@@ -136,6 +182,9 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.Username,
 		&i.PasswordHash,
 		&i.CreatedAt,
+		&i.PlatformRole,
+		&i.SuspendedAt,
+		&i.TokensInvalidatedAt,
 	)
 	return i, err
 }

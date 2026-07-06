@@ -5,19 +5,32 @@ import (
 	"net/http"
 
 	"github.com/brainart16/brenox/internal/httperr"
+	"github.com/brainart16/brenox/internal/platformadmin"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	service *Service
+	service       *Service
+	platformAdmin *platformadmin.Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) SetPlatformAdminService(platformAdmin *platformadmin.Service) {
+	h.platformAdmin = platformAdmin
+}
+
 func (h *Handler) GetMe(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
+
+	if h.platformAdmin != nil {
+		if profile, err := h.service.GetProfile(c.Request.Context(), userID); err == nil {
+			_ = h.platformAdmin.SyncBootstrapAdmin(c.Request.Context(), profile.Email)
+		}
+	}
+
 	profile, err := h.service.GetProfile(c.Request.Context(), userID)
 	if err != nil {
 		writeError(c, err)

@@ -37,6 +37,7 @@ import (
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
 	usersHandler "github.com/brainart16/brenox/internal/users"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
+	"github.com/brainart16/brenox/internal/platformadmin"
 )
 
 func main() {
@@ -49,6 +50,12 @@ func main() {
 	pool, err := database.NewPostgresPool()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if migrationStatus, err := database.CheckMigrations(context.Background(), pool); err != nil {
+		slog.Error("migration check failed", "error", err)
+	} else if !migrationStatus.OK {
+		slog.Error("database migrations are out of date", "version", migrationStatus.Version, "message", migrationStatus.Message)
 	}
 
 	redisClient, err := redisutil.NewClient()
@@ -90,6 +97,13 @@ func main() {
 
 	usersService := usersHandler.NewService(queries)
 	usersHandlerInstance := usersHandler.NewHandler(usersService)
+
+	platformAdminService := platformadmin.NewService(queries)
+	platformAdminService.SyncBootstrapAdminsFromEnv(context.Background())
+	platformAdminHandler := platformadmin.NewHandler(platformAdminService)
+
+	authHandlerInstance.SetAdminBootstrap(platformAdminService)
+	usersHandlerInstance.SetPlatformAdminService(platformAdminService)
 
 	workspacesService := workspacesHandler.NewService(queries, authzService)
 	workspacesService.SetInviteNotifier(notificationService)
@@ -198,6 +212,18 @@ func main() {
 	api.POST("/apps/:app_id/webhooks", appsHandlerInstance.CreateWebhook)
 	api.GET("/apps/:app_id/webhooks", appsHandlerInstance.ListWebhooks)
 	api.DELETE("/apps/:app_id/webhooks/:webhook_id", appsHandlerInstance.DeleteWebhook)
+
+	admin := api.Group("/admin")
+	admin.Use(middleware.PlatformUserMiddleware(queries))
+	admin.Use(middleware.RequirePlatformRole(platformadmin.RoleSupport))
+	admin.GET("/overview", platformAdminHandler.GetOverview)
+	admin.GET("/users", platformAdminHandler.ListUsers)
+	admin.GET("/users/:id", platformAdminHandler.GetUser)
+	admin.PATCH("/users/:id", middleware.RequirePlatformWrite(), platformAdminHandler.UpdateUser)
+	admin.GET("/workspaces", platformAdminHandler.ListWorkspaces)
+	admin.GET("/workspaces/:id", platformAdminHandler.GetWorkspace)
+	admin.GET("/apps", platformAdminHandler.ListApps)
+	admin.GET("/audit-logs", platformAdminHandler.ListAuditLogs)
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))

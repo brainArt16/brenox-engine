@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-07-07 (Sanitized client-facing errors)
+> **Last updated:** 2026-07-07 (Phase 15 — Platform admin MVP)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -460,6 +460,24 @@ messages
 
 ---
 
+## Phase 15 — Platform Admin
+
+**Goal:** System admin panel API for cross-tenant operations.
+
+**Exit criteria:** Platform roles on users; admin routes gated; suspend invalidates JWTs; env bootstrap for admins.
+
+| # | Task | Status |
+|---|------|--------|
+| 15.1 | Migration: `users.platform_role`, `users.suspended_at`, `users.tokens_invalidated_at` | [x] |
+| 15.2 | `PLATFORM_ADMIN_EMAILS` env bootstrap on login/register/me | [x] |
+| 15.3 | Admin middleware + `GET /api/admin/overview`, users, workspaces, apps, audit-logs | [x] |
+| 15.4 | `PATCH /api/admin/users/:id` — suspend/unsuspend, platform role (admin only) | [x] |
+| 15.5 | Extend `GET /api/users/me` with `platform_role`, `suspended` | [x] |
+| 15.6 | Suspend + token invalidation in JWT validation | [x] |
+| 15.7 | Web: `/admin` panel (overview, users, workspaces, apps, audit) | [x] |
+
+---
+
 ## Dependency Graph
 
 ```text
@@ -553,6 +571,8 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Health check reports pending migrations; startup logs error when schema is behind (fixes prod audit_logs / register failures) |
+| 2026-07-07 | Phase 15 MVP: platform admin API (`/api/admin/*`), roles, suspend + JWT invalidation, web admin panel |
 | 2026-07-07 | Sanitized HTTP and WebSocket error responses so internal infrastructure details stay server-side |
 | 2026-07-05 | `POST /v1/channels` idempotent on duplicate name — returns existing channel in app workspace (embed demo bootstrap) |
 | 2026-07-05 | `POST /v1/sessions` — issue user JWT for embed SDK clients; optional channel auto-join; BrenoxServer.sessions in SDK |
