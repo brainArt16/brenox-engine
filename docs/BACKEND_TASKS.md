@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-07-07 (Phase 15B — Admin detail & emergency ops)
+> **Last updated:** 2026-07-07 (Phase 15C — Billing & platform ops)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -488,6 +488,19 @@ messages
 | 15.11 | Audit log filters: `?user_id=`, `?action=`, pagination | [x] |
 | 15.12 | Web: user/workspace/app detail pages; audit filters | [x] |
 
+### Phase 15C — Billing & platform ops
+
+**Exit criteria:** Plan tiers in DB; app subscriptions; Stripe checkout + webhooks; usage metering; feature gates; maintenance mode.
+
+| # | Task | Status |
+|---|------|--------|
+| 15.13 | Migration: `plans`, `app_subscriptions`, `usage_counters`, `platform_settings` | [x] |
+| 15.14 | `GET /api/plans`, app billing + Stripe checkout/webhook | [x] |
+| 15.15 | Message usage metering + plan limits (chat + `/v1/messages`) | [x] |
+| 15.16 | Feature gates: webhooks (Growth+), video calls (Growth+) | [x] |
+| 15.17 | Maintenance mode middleware + admin platform settings | [x] |
+| 15.18 | Admin billing overview; web billing page + register plan flow | [x] |
+
 ---
 
 ## Dependency Graph
@@ -583,6 +596,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Phase 15C: billing plans, Stripe checkout, usage metering, feature gates, maintenance mode |
 | 2026-07-07 | Phase 15B: admin app detail + cross-tenant key revoke, workspace members, audit filters, web detail pages |
 | 2026-07-07 | Health check reports pending migrations; startup logs error when schema is behind (fixes prod audit_logs / register failures) |
 | 2026-07-07 | Phase 15 MVP: platform admin API (`/api/admin/*`), roles, suspend + JWT invalidation, web admin panel |

@@ -16,7 +16,12 @@ type Service struct {
 	broadcast       Broadcaster
 	invites         InviteNotifier
 	access          ChannelAccessChecker
+	billing         CallBilling
 	maxParticipants int
+}
+
+type CallBilling interface {
+	CheckCanStartVideoCall(ctx context.Context, workspaceID int64) error
 }
 
 func NewService(
@@ -35,6 +40,10 @@ func NewService(
 	}
 }
 
+func (s *Service) SetBilling(billing CallBilling) {
+	s.billing = billing
+}
+
 func (s *Service) InitiateCall(
 	ctx context.Context,
 	workspaceID, channelID, userID int64,
@@ -47,6 +56,12 @@ func (s *Service) InitiateCall(
 
 	if err := s.access.AssertChannelMember(ctx, workspaceID, channelID, userID); err != nil {
 		return CallResponse{}, mapAccessErr(err)
+	}
+
+	if mode == ModeVideo && s.billing != nil {
+		if err := s.billing.CheckCanStartVideoCall(ctx, workspaceID); err != nil {
+			return CallResponse{}, err
+		}
 	}
 
 	if _, err := s.queries.GetActiveCallByChannel(ctx, channelID); err == nil {

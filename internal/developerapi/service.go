@@ -35,6 +35,12 @@ type Service struct {
 	queries    *db.Queries
 	broadcast  MessageBroadcaster
 	webhooks   *webhooks.Dispatcher
+	billing    AppBilling
+}
+
+type AppBilling interface {
+	CheckMessageQuota(ctx context.Context, appID int64) error
+	RecordMessageByAppID(ctx context.Context, appID int64) error
 }
 
 func NewService(queries *db.Queries, broadcast MessageBroadcaster, dispatcher *webhooks.Dispatcher) *Service {
@@ -43,6 +49,10 @@ func NewService(queries *db.Queries, broadcast MessageBroadcaster, dispatcher *w
 		broadcast: broadcast,
 		webhooks:  dispatcher,
 	}
+}
+
+func (s *Service) SetBilling(billing AppBilling) {
+	s.billing = billing
 }
 
 func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessionRequest) (SessionResponse, error) {
@@ -230,6 +240,12 @@ func (s *Service) SendMessage(ctx context.Context, app db.App, req SendMessageRe
 		return MessageResponse{}, err
 	}
 
+	if s.billing != nil {
+		if err := s.billing.CheckMessageQuota(ctx, app.ID); err != nil {
+			return MessageResponse{}, err
+		}
+	}
+
 	message, err := s.queries.CreateMessage(ctx, db.CreateMessageParams{
 		ChannelID: channel.ID,
 		SenderID:  userID,
@@ -241,6 +257,10 @@ func (s *Service) SendMessage(ctx context.Context, app db.App, req SendMessageRe
 
 	if s.broadcast != nil {
 		s.broadcast.PublishMessageNew(app.WorkspaceID, channel.ID, message)
+	}
+
+	if s.billing != nil {
+		_ = s.billing.RecordMessageByAppID(ctx, app.ID)
 	}
 
 	resp := toMessageResponse(message)

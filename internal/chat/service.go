@@ -17,6 +17,12 @@ type Service struct {
 	authz      *authz.Service
 	notifier   Notifier
 	attacher   AttachmentAttacher
+	billing    MessageBilling
+}
+
+type MessageBilling interface {
+	CheckMessageQuotaByWorkspace(ctx context.Context, workspaceID int64) error
+	RecordMessageByWorkspaceID(ctx context.Context, workspaceID int64) error
 }
 
 type AttachmentAttacher interface {
@@ -42,6 +48,10 @@ func (s *Service) SetNotifier(notifier Notifier) {
 
 func (s *Service) SetAttachmentAttacher(attacher AttachmentAttacher) {
 	s.attacher = attacher
+}
+
+func (s *Service) SetBilling(billing MessageBilling) {
+	s.billing = billing
 }
 
 func normalizeContent(content string, allowEmpty bool) (string, error) {
@@ -140,9 +150,19 @@ func (s *Service) SendMessage(
 		return nil, err
 	}
 
+	if s.billing != nil {
+		if err := s.billing.CheckMessageQuotaByWorkspace(ctx, workspaceID); err != nil {
+			return nil, err
+		}
+	}
+
 	message, err := s.saveMessage(ctx, channelID, senderID, normalized)
 	if err != nil {
 		return nil, err
+	}
+
+	if s.billing != nil {
+		_ = s.billing.RecordMessageByWorkspaceID(ctx, workspaceID)
 	}
 
 	if s.notifier != nil {

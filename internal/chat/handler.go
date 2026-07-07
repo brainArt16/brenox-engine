@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/brainart16/brenox/internal/billing"
 	"github.com/brainart16/brenox/internal/httperr"
 	"github.com/gin-gonic/gin"
 )
@@ -117,6 +118,9 @@ func writeServiceError(c *gin.Context, err error) {
 	case errors.Is(err, ErrEmptyContent), errors.Is(err, ErrMessageTooLong):
 		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
+		if billing.WriteHTTPError(c, err) {
+			return
+		}
 		httperr.WriteInternal(c, err)
 	}
 }

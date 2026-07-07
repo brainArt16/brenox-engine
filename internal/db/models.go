@@ -29,6 +29,19 @@ type App struct {
 	CreatedAt   pgtype.Timestamptz
 }
 
+type AppSubscription struct {
+	ID                   int64
+	AppID                int64
+	PlanSlug             string
+	Status               string
+	StripeCustomerID     pgtype.Text
+	StripeSubscriptionID pgtype.Text
+	CurrentPeriodStart   pgtype.Timestamptz
+	CurrentPeriodEnd     pgtype.Timestamptz
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
+}
+
 type AppUser struct {
 	ID         int64
 	AppID      int64
@@ -143,11 +156,39 @@ type Notification struct {
 	CreatedAt pgtype.Timestamptz
 }
 
+type Plan struct {
+	Slug              string
+	Name              string
+	PriceCents        int32
+	StripePriceID     pgtype.Text
+	MessagesLimit     int32
+	ConnectionsLimit  int32
+	RetentionDays     int32
+	WebhooksEnabled   bool
+	VideoCallsEnabled bool
+	ModerationEnabled bool
+	CreatedAt         pgtype.Timestamptz
+}
+
+type PlatformSetting struct {
+	Key       string
+	Value     string
+	UpdatedAt pgtype.Timestamptz
+}
+
 type RevokedToken struct {
 	Jti       string
 	UserID    int64
 	RevokedAt pgtype.Timestamptz
 	ExpiresAt pgtype.Timestamptz
+}
+
+type UsageCounter struct {
+	ID            int64
+	AppID         int64
+	PeriodMonth   pgtype.Date
+	MessagesCount int64
+	UpdatedAt     pgtype.Timestamptz
 }
 
 type User struct {
@@ -159,6 +200,7 @@ type User struct {
 	PlatformRole        string
 	SuspendedAt         pgtype.Timestamptz
 	TokensInvalidatedAt pgtype.Timestamptz
+	StripeCustomerID    pgtype.Text
 }
 
 type Webhook struct {

@@ -38,6 +38,7 @@ import (
 	usersHandler "github.com/brainart16/brenox/internal/users"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
 	"github.com/brainart16/brenox/internal/platformadmin"
+	"github.com/brainart16/brenox/internal/billing"
 )
 
 func main() {
@@ -135,11 +136,18 @@ func main() {
 	)
 	callsHandlerInstance := callsHandler.NewHandler(callsService)
 
+	billingService := billing.NewService(queries, billing.LoadConfig())
+	billingHandler := billing.NewHandler(billingService)
+
 	appsService := appsHandler.NewService(queries)
+	appsService.SetBilling(billingService)
 	appsHandlerInstance := appsHandler.NewHandler(appsService)
 	webhookDispatcher := webhooks.NewDispatcher(queries)
 	devAPIService := developerapi.NewService(queries, realtimeHandler.NewChatBroadcaster(hub), webhookDispatcher)
+	devAPIService.SetBilling(billingService)
 	devAPIHandler := developerapi.NewHandler(devAPIService)
+	chatService.SetBilling(billingService)
+	callsService.SetBilling(billingService)
 	apiRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadConfig())
 	ipRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.IPConfigToConfig(ratelimit.LoadIPConfig()))
 	auditRecorder := middleware.NewAuditRecorder(queries)
@@ -155,10 +163,14 @@ func main() {
 	router.Use(middleware.IPRateLimitMiddleware(ipRateLimiter))
 	router.Use(middleware.AuditMiddleware(auditRecorder))
 	router.Use(metrics.Middleware())
+	router.Use(middleware.MaintenanceMiddleware(billingService))
 
 	router.GET("/health", healthHandler.Check)
 	router.GET("/version", versionHandler.Get)
 	router.GET("/metrics", metrics.Handler())
+	router.GET("/api/plans", billingHandler.ListPlans)
+	router.GET("/api/platform/status", billingHandler.GetPlatformStatus)
+	router.POST("/webhooks/stripe", billingHandler.StripeWebhook)
 
 	authRouter := router.Group("/auth")
 	authRouter.POST("/register", authHandlerInstance.Register)
@@ -212,6 +224,8 @@ func main() {
 	api.POST("/apps/:app_id/webhooks", appsHandlerInstance.CreateWebhook)
 	api.GET("/apps/:app_id/webhooks", appsHandlerInstance.ListWebhooks)
 	api.DELETE("/apps/:app_id/webhooks/:webhook_id", appsHandlerInstance.DeleteWebhook)
+	api.GET("/apps/:app_id/billing", billingHandler.GetAppBilling)
+	api.POST("/apps/:app_id/billing/checkout", billingHandler.CreateCheckout)
 
 	admin := api.Group("/admin")
 	admin.Use(middleware.PlatformUserMiddleware(queries))
@@ -224,10 +238,16 @@ func main() {
 	admin.GET("/workspaces/:id", platformAdminHandler.GetWorkspace)
 	admin.GET("/workspaces/:id/members", platformAdminHandler.ListWorkspaceMembers)
 	admin.GET("/apps", platformAdminHandler.ListApps)
-	admin.GET("/apps/:id", platformAdminHandler.GetApp)
+	admin.GET("/apps/:app_id", platformAdminHandler.GetApp)
 	admin.GET("/apps/:app_id/keys", platformAdminHandler.ListAppKeys)
 	admin.DELETE("/apps/:app_id/keys/:key_id", middleware.RequirePlatformWrite(), platformAdminHandler.RevokeAppKey)
 	admin.GET("/audit-logs", platformAdminHandler.ListAuditLogs)
+	admin.GET("/billing/overview", billingHandler.AdminGetBillingOverview)
+	admin.GET("/billing/subscriptions", billingHandler.AdminListSubscriptions)
+	admin.GET("/apps/:app_id/billing", billingHandler.AdminGetAppBilling)
+	admin.PATCH("/apps/:app_id/subscription", middleware.RequirePlatformWrite(), billingHandler.AdminUpdateAppSubscription)
+	admin.GET("/platform-settings", billingHandler.AdminGetPlatformSettings)
+	admin.PATCH("/platform-settings", middleware.RequirePlatformWrite(), billingHandler.AdminUpdatePlatformSettings)
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))

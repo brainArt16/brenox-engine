@@ -2,9 +2,11 @@ package developerapi
 
 import (
 	"errors"
-	"github.com/brainart16/brenox/internal/httperr"
 	"net/http"
 	"strconv"
+
+	"github.com/brainart16/brenox/internal/billing"
+	"github.com/brainart16/brenox/internal/httperr"
 
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/gin-gonic/gin"
@@ -119,6 +121,9 @@ func writeError(c *gin.Context, err error) {
 	default:
 		if err != nil && err.Error() == "channel name already exists" {
 			c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
+			return
+		}
+		if billing.WriteHTTPError(c, err) {
 			return
 		}
 		httperr.WriteInternal(c, err)

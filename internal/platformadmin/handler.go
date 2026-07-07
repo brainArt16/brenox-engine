@@ -111,7 +111,7 @@ func (h *Handler) ListApps(c *gin.Context) {
 }
 
 func (h *Handler) GetApp(c *gin.Context) {
-	appID, ok := parseID(c, "id")
+	appID, ok := parseID(c, "app_id")
 	if !ok {
 		return
 	}

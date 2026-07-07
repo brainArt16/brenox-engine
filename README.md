@@ -204,6 +204,15 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/admin/apps/:id` | JWT (support+) | App detail |
 | GET | `/api/admin/apps/:app_id/keys` | JWT (support+) | List API keys for any app |
 | DELETE | `/api/admin/apps/:app_id/keys/:key_id` | JWT (admin) | Emergency cross-tenant API key revoke |
+| GET | `/api/plans` | No | Public plan tiers (Starter/Growth/Scale) |
+| GET | `/api/platform/status` | No | Maintenance mode status |
+| POST | `/webhooks/stripe` | Stripe signature | Subscription lifecycle webhooks |
+| GET | `/api/apps/:app_id/billing` | JWT (owner) | App subscription + usage |
+| POST | `/api/apps/:app_id/billing/checkout` | JWT (owner) | Create Stripe Checkout session |
+| GET | `/api/admin/billing/overview` | JWT (support+) | Active subscription count |
+| GET | `/api/admin/billing/subscriptions` | JWT (support+) | All app subscriptions + usage |
+| PATCH | `/api/admin/apps/:id/subscription` | JWT (admin) | Override plan/status |
+| GET/PATCH | `/api/admin/platform-settings` | JWT (support+/admin write) | Maintenance mode |
 | GET | `/api/admin/audit-logs` | JWT (support+) | Audit log entries (`?user_id=`, `?action=`, pagination) |
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |

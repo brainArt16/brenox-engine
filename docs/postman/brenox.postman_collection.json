@@ -915,6 +915,61 @@
       ]
     },
     {
+      "name": "Billing",
+      "item": [
+        {
+          "name": "List Plans",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/plans" }
+        },
+        {
+          "name": "Platform Status",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/platform/status" }
+        },
+        {
+          "name": "Get App Billing",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/apps/1/billing"
+          }
+        },
+        {
+          "name": "Create Checkout Session",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plan_slug\": \"growth\"\n}" },
+            "url": "{{baseUrl}}/api/apps/1/billing/checkout"
+          }
+        },
+        {
+          "name": "Admin Billing Overview",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/billing/overview"
+          }
+        },
+        {
+          "name": "Admin List Subscriptions",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/billing/subscriptions"
+          }
+        },
+        {
+          "name": "Admin Platform Settings",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/platform-settings"
+          }
+        }
+      ]
+    },
+    {
       "name": "WebSocket",
       "item": [
         {

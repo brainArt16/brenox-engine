@@ -15,8 +15,9 @@ var (
 )
 
 type CreateAppRequest struct {
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+	Name     string `json:"name"`
+	Slug     string `json:"slug"`
+	PlanSlug string `json:"plan_slug"`
 }
 
 type CreateAPIKeyRequest struct {

@@ -18,10 +18,20 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
 type Service struct {
 	queries *db.Queries
+	billing BillingHook
+}
+
+type BillingHook interface {
+	OnAppCreated(ctx context.Context, appID int64, planSlug string) error
+	CheckCanCreateWebhook(ctx context.Context, appID int64) error
 }
 
 func NewService(queries *db.Queries) *Service {
 	return &Service{queries: queries}
+}
+
+func (s *Service) SetBilling(hook BillingHook) {
+	s.billing = hook
 }
 
 type AuthenticatedApp struct {
@@ -71,6 +81,12 @@ func (s *Service) CreateApp(ctx context.Context, ownerID int64, req CreateAppReq
 	})
 	if err != nil {
 		return AppResponse{}, err
+	}
+
+	if s.billing != nil {
+		if err := s.billing.OnAppCreated(ctx, app.ID, req.PlanSlug); err != nil {
+			return AppResponse{}, err
+		}
 	}
 
 	return toAppResponse(app), nil
@@ -193,6 +209,12 @@ func (s *Service) CreateWebhook(ctx context.Context, appID, ownerID int64, req C
 	url := strings.TrimSpace(req.URL)
 	if url == "" {
 		return WebhookResponse{}, ErrWebhookURLRequired
+	}
+
+	if s.billing != nil {
+		if err := s.billing.CheckCanCreateWebhook(ctx, app.ID); err != nil {
+			return WebhookResponse{}, err
+		}
 	}
 
 	events := req.Events

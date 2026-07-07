@@ -22,7 +22,7 @@ VALUES (
     $2,
     $3
 )
-RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
+RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at, stripe_customer_id
 `
 
 type CreateUserParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PlatformRole,
 		&i.SuspendedAt,
 		&i.TokensInvalidatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -80,7 +81,7 @@ func (q *Queries) GetUserAuthState(ctx context.Context, id int64) (GetUserAuthSt
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at, stripe_customer_id
 FROM users
 WHERE email = $1
 `
@@ -97,12 +98,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PlatformRole,
 		&i.SuspendedAt,
 		&i.TokensInvalidatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at, stripe_customer_id
 FROM users
 WHERE id = $1
 `
@@ -119,12 +121,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.PlatformRole,
 		&i.SuspendedAt,
 		&i.TokensInvalidatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
+SELECT id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at, stripe_customer_id
 FROM users
 WHERE LOWER(username) = LOWER($1)
 `
@@ -141,6 +144,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, lower string) (User, er
 		&i.PlatformRole,
 		&i.SuspendedAt,
 		&i.TokensInvalidatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
@@ -165,7 +169,7 @@ const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
 SET username = $2
 WHERE id = $1
-RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at
+RETURNING id, email, username, password_hash, created_at, platform_role, suspended_at, tokens_invalidated_at, stripe_customer_id
 `
 
 type UpdateUserProfileParams struct {
@@ -185,6 +189,7 @@ func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfilePa
 		&i.PlatformRole,
 		&i.SuspendedAt,
 		&i.TokensInvalidatedAt,
+		&i.StripeCustomerID,
 	)
 	return i, err
 }
