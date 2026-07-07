@@ -13,7 +13,8 @@
     { "key": "messageId", "value": "1" },
     { "key": "callId", "value": "1" },
     { "key": "appId", "value": "1" },
-    { "key": "apiKey", "value": "" }
+    { "key": "apiKey", "value": "" },
+    { "key": "sandboxWorkspaceId", "value": "1" }
   ],
   "item": [
     {
@@ -617,6 +618,14 @@
                   "if (json.id) {",
                   "  pm.collectionVariables.set('appId', json.id);",
                   "  pm.environment.set('appId', json.id);",
+                  "}",
+                  "if (json.workspace_id) {",
+                  "  pm.collectionVariables.set('workspaceId', json.workspace_id);",
+                  "  pm.environment.set('workspaceId', json.workspace_id);",
+                  "}",
+                  "if (json.sandbox_workspace_id) {",
+                  "  pm.collectionVariables.set('sandboxWorkspaceId', json.sandbox_workspace_id);",
+                  "  pm.environment.set('sandboxWorkspaceId', json.sandbox_workspace_id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -629,7 +638,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Integration\",\n  \"slug\": \"my-integration\"\n}" },
             "url": "{{baseUrl}}/api/apps",
-            "description": "Creates app + dedicated workspace tenant boundary."
+            "description": "Creates app with live workspace_id and sandbox_workspace_id. Test script saves both workspace IDs."
           }
         },
         {
@@ -683,9 +692,9 @@
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"name\": \"production\",\n  \"sandbox\": false\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"sandbox\",\n  \"sandbox\": true\n}" },
             "url": "{{baseUrl}}/api/apps/{{appId}}/keys",
-            "description": "Secret shown once. Use bx_live_... or bx_test_... for /v1 routes."
+            "description": "Secret shown once. bx_test_* routes /v1 to sandbox_workspace_id; bx_live_* routes to workspace_id. Webhooks fire only for live keys."
           }
         },
         {
@@ -753,6 +762,38 @@
         },
         {
           "name": "Create Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  pm.environment.set('token', json.token);",
+                  "}",
+                  "if (json.workspace_id) {",
+                  "  pm.collectionVariables.set('workspaceId', json.workspace_id);",
+                  "  pm.environment.set('workspaceId', json.workspace_id);",
+                  "}",
+                  "if (json.channel_id) {",
+                  "  pm.collectionVariables.set('channelId', json.channel_id);",
+                  "  pm.environment.set('channelId', json.channel_id);",
+                  "}",
+                  "pm.test('environment matches API key lane', function () {",
+                  "  const key = pm.environment.get('apiKey') || pm.collectionVariables.get('apiKey') || '';",
+                  "  const env = json.environment;",
+                  "  if (key.startsWith('bx_test_')) {",
+                  "    pm.expect(env).to.eql('sandbox');",
+                  "  } else if (key.startsWith('bx_live_')) {",
+                  "    pm.expect(env).to.eql('live');",
+                  "  }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
           "request": {
             "auth": { "type": "apikey", "apikey": [{ "key": "key", "value": "{{apiKey}}", "type": "string" }] },
             "method": "POST",
@@ -762,7 +803,7 @@
               "raw": "{\n  \"external_id\": \"user-42\",\n  \"channel_id\": {{channelId}}\n}"
             },
             "url": "{{baseUrl}}/v1/sessions",
-            "description": "Issue a user JWT for embed/front-end SDK clients. Optionally joins the user to channel_id."
+            "description": "Issue a user JWT for embed/front-end SDK clients. Response includes workspace_id and environment (sandbox|live) matching the API key lane."
           }
         },
         {

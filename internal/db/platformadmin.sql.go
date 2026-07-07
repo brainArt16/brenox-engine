@@ -102,6 +102,7 @@ SELECT
     a.name,
     a.slug,
     a.workspace_id,
+    a.sandbox_workspace_id,
     a.owner_id,
     a.created_at,
     u.email AS owner_email
@@ -111,13 +112,14 @@ WHERE a.id = $1
 `
 
 type GetAppAdminRow struct {
-	ID          int64
-	Name        string
-	Slug        string
-	WorkspaceID int64
-	OwnerID     int64
-	CreatedAt   pgtype.Timestamptz
-	OwnerEmail  string
+	ID                 int64
+	Name               string
+	Slug               string
+	WorkspaceID        int64
+	SandboxWorkspaceID int64
+	OwnerID            int64
+	CreatedAt          pgtype.Timestamptz
+	OwnerEmail         string
 }
 
 func (q *Queries) GetAppAdmin(ctx context.Context, id int64) (GetAppAdminRow, error) {
@@ -128,6 +130,7 @@ func (q *Queries) GetAppAdmin(ctx context.Context, id int64) (GetAppAdminRow, er
 		&i.Name,
 		&i.Slug,
 		&i.WorkspaceID,
+		&i.SandboxWorkspaceID,
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.OwnerEmail,
@@ -205,6 +208,7 @@ SELECT
     a.name,
     a.slug,
     a.workspace_id,
+    a.sandbox_workspace_id,
     a.owner_id,
     a.created_at,
     u.email AS owner_email
@@ -220,13 +224,14 @@ type ListAppsAdminParams struct {
 }
 
 type ListAppsAdminRow struct {
-	ID          int64
-	Name        string
-	Slug        string
-	WorkspaceID int64
-	OwnerID     int64
-	CreatedAt   pgtype.Timestamptz
-	OwnerEmail  string
+	ID                 int64
+	Name               string
+	Slug               string
+	WorkspaceID        int64
+	SandboxWorkspaceID int64
+	OwnerID            int64
+	CreatedAt          pgtype.Timestamptz
+	OwnerEmail         string
 }
 
 func (q *Queries) ListAppsAdmin(ctx context.Context, arg ListAppsAdminParams) ([]ListAppsAdminRow, error) {
@@ -243,6 +248,7 @@ func (q *Queries) ListAppsAdmin(ctx context.Context, arg ListAppsAdminParams) ([
 			&i.Name,
 			&i.Slug,
 			&i.WorkspaceID,
+			&i.SandboxWorkspaceID,
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.OwnerEmail,

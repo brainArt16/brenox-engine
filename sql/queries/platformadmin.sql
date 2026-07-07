@@ -121,6 +121,7 @@ SELECT
     a.name,
     a.slug,
     a.workspace_id,
+    a.sandbox_workspace_id,
     a.owner_id,
     a.created_at,
     u.email AS owner_email
@@ -135,6 +136,7 @@ SELECT
     a.name,
     a.slug,
     a.workspace_id,
+    a.sandbox_workspace_id,
     a.owner_id,
     a.created_at,
     u.email AS owner_email

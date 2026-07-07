@@ -55,13 +55,14 @@ type WorkspaceDetailResponse struct {
 }
 
 type AppListItem struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	Slug        string `json:"slug"`
-	WorkspaceID int64  `json:"workspace_id"`
-	OwnerID     int64  `json:"owner_id"`
-	OwnerEmail  string `json:"owner_email"`
-	CreatedAt   string `json:"created_at"`
+	ID                 int64  `json:"id"`
+	Name               string `json:"name"`
+	Slug               string `json:"slug"`
+	WorkspaceID        int64  `json:"workspace_id"`
+	SandboxWorkspaceID int64  `json:"sandbox_workspace_id"`
+	OwnerID            int64  `json:"owner_id"`
+	OwnerEmail         string `json:"owner_email"`
+	CreatedAt          string `json:"created_at"`
 }
 
 type APIKeyItem struct {
@@ -314,7 +315,7 @@ func (s *Service) ListApps(ctx context.Context, limit, offset int32) ([]AppListI
 
 	items := make([]AppListItem, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt))
+		items = append(items, toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.SandboxWorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt))
 	}
 	return items, nil
 }
@@ -327,7 +328,7 @@ func (s *Service) GetApp(ctx context.Context, appID int64) (AppListItem, error) 
 		}
 		return AppListItem{}, err
 	}
-	return toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt), nil
+	return toAppListItem(row.ID, row.Name, row.Slug, row.WorkspaceID, row.SandboxWorkspaceID, row.OwnerID, row.OwnerEmail, row.CreatedAt), nil
 }
 
 func (s *Service) ListAppKeys(ctx context.Context, appID int64) ([]APIKeyItem, error) {
@@ -442,15 +443,16 @@ func (s *Service) ListAuditLogs(ctx context.Context, userID *int64, action strin
 	return items, nil
 }
 
-func toAppListItem(id int64, name, slug string, workspaceID, ownerID int64, ownerEmail string, createdAt pgtype.Timestamptz) AppListItem {
+func toAppListItem(id int64, name, slug string, workspaceID, sandboxWorkspaceID, ownerID int64, ownerEmail string, createdAt pgtype.Timestamptz) AppListItem {
 	return AppListItem{
-		ID:          id,
-		Name:        name,
-		Slug:        slug,
-		WorkspaceID: workspaceID,
-		OwnerID:     ownerID,
-		OwnerEmail:  ownerEmail,
-		CreatedAt:   formatTime(createdAt),
+		ID:                 id,
+		Name:               name,
+		Slug:               slug,
+		WorkspaceID:        workspaceID,
+		SandboxWorkspaceID: sandboxWorkspaceID,
+		OwnerID:            ownerID,
+		OwnerEmail:         ownerEmail,
+		CreatedAt:          formatTime(createdAt),
 	}
 }
 
