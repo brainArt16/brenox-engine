@@ -17,6 +17,7 @@ var ErrTokenRevoked = errors.New("token revoked")
 // CustomClaims defines data stored inside JWT token.
 type CustomClaims struct {
 	UserID int64 `json:"user_id"`
+	AppID  int64 `json:"app_id,omitempty"`
 	jwtlib.RegisteredClaims
 }
 
@@ -50,9 +51,15 @@ func refreshGracePeriod() time.Duration {
 
 // GenerateToken creates a signed access JWT with a unique token ID (jti).
 func GenerateToken(userID int64) (string, error) {
+	return GenerateSessionToken(userID, 0)
+}
+
+// GenerateSessionToken creates a JWT for an end-user session. appID is set for embed clients.
+func GenerateSessionToken(userID, appID int64) (string, error) {
 	now := time.Now()
 	claims := CustomClaims{
 		UserID: userID,
+		AppID:  appID,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ID:        uuid.NewString(),
 			ExpiresAt: jwtlib.NewNumericDate(now.Add(accessTokenTTL())),

@@ -20,6 +20,7 @@ import (
 	"github.com/brainart16/brenox/internal/version"
 	"github.com/brainart16/brenox/internal/metrics"
 	"github.com/brainart16/brenox/internal/notifications"
+	"github.com/brainart16/brenox/internal/origins"
 	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
 	"github.com/brainart16/brenox/internal/storage"
@@ -139,8 +140,11 @@ func main() {
 	billingService := billing.NewService(queries, billing.LoadConfig())
 	billingHandler := billing.NewHandler(billingService)
 
+	originChecker := origins.NewChecker(queries)
+
 	appsService := appsHandler.NewService(queries)
 	appsService.SetBilling(billingService)
+	appsService.SetOriginChecker(originChecker)
 	appsHandlerInstance := appsHandler.NewHandler(appsService)
 	webhookDispatcher := webhooks.NewDispatcher(queries)
 	devAPIService := developerapi.NewService(queries, realtimeHandler.NewChatBroadcaster(hub), webhookDispatcher)
@@ -152,13 +156,13 @@ func main() {
 	ipRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.IPConfigToConfig(ratelimit.LoadIPConfig()))
 	auditRecorder := middleware.NewAuditRecorder(queries)
 
-	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, wsConfig)
+	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, originChecker, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
 	versionHandler := version.NewHandler()
 
 	router := gin.Default()
 	router.Use(middleware.SecurityHeadersMiddleware())
-	router.Use(middleware.CORSMiddleware(middleware.LoadCORSConfig()))
+	router.Use(middleware.CORSMiddleware(originChecker))
 	router.Use(middleware.RequestSizeLimitMiddleware(middleware.LoadMaxBodyBytes()))
 	router.Use(middleware.IPRateLimitMiddleware(ipRateLimiter))
 	router.Use(middleware.AuditMiddleware(auditRecorder))
@@ -218,6 +222,7 @@ func main() {
 	api.POST("/apps", appsHandlerInstance.CreateApp)
 	api.GET("/apps", appsHandlerInstance.ListApps)
 	api.GET("/apps/:app_id", appsHandlerInstance.GetApp)
+	api.PATCH("/apps/:app_id/origins", appsHandlerInstance.UpdateAllowedOrigins)
 	api.POST("/apps/:app_id/keys", appsHandlerInstance.CreateAPIKey)
 	api.GET("/apps/:app_id/keys", appsHandlerInstance.ListAPIKeys)
 	api.DELETE("/apps/:app_id/keys/:key_id", appsHandlerInstance.RevokeAPIKey)

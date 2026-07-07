@@ -49,7 +49,7 @@ func TestAuthRegisterAndLogin(t *testing.T) {
 		t.Fatal("expected token")
 	}
 
-	userID, err := service.ValidateAccessToken(ctx, token)
+	userID, _, err := service.ValidateAccessToken(ctx, token)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestAuthRegisterAndLogin(t *testing.T) {
 		t.Fatal("expected rotated token")
 	}
 
-	if _, err := service.ValidateAccessToken(ctx, token); err == nil {
+	if _, _, err := service.ValidateAccessToken(ctx, token); err == nil {
 		t.Fatal("old token should be revoked after refresh")
 	}
 }

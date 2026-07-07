@@ -649,6 +649,20 @@
           }
         },
         {
+          "name": "Update Allowed Origins",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"allowed_origins\": [\n    \"https://app.example.com\",\n    \"http://localhost:3000\"\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/apps/{{appId}}/origins",
+            "description": "Per-app browser origins for CORS and WebSocket. Platform console origins still use CORS_ALLOWED_ORIGINS / WS_ALLOWED_ORIGINS."
+          }
+        },
+        {
           "name": "Create API Key",
           "event": [
             {

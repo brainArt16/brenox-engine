@@ -62,6 +62,28 @@ func (h *Handler) GetApp(c *gin.Context) {
 	c.JSON(http.StatusOK, app)
 }
 
+func (h *Handler) UpdateAllowedOrigins(c *gin.Context) {
+	appID, err := parseAppID(c)
+	if err != nil {
+		return
+	}
+
+	var req UpdateAllowedOriginsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	userID := c.MustGet("user_id").(int64)
+	app, err := h.service.UpdateAllowedOrigins(c.Request.Context(), appID, userID, req)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, app)
+}
+
 func (h *Handler) CreateAPIKey(c *gin.Context) {
 	appID, err := parseAppID(c)
 	if err != nil {
@@ -213,7 +235,7 @@ func writeError(c *gin.Context, err error) {
 		c.JSON(http.StatusForbidden, gin.H{"error": httperr.Sanitize(err.Error())})
 	case errors.Is(err, ErrSlugTaken):
 		c.JSON(http.StatusConflict, gin.H{"error": httperr.Sanitize(err.Error())})
-	case errors.Is(err, ErrNameRequired), errors.Is(err, ErrInvalidSlug), errors.Is(err, ErrWebhookURLRequired):
+	case errors.Is(err, ErrNameRequired), errors.Is(err, ErrInvalidSlug), errors.Is(err, ErrWebhookURLRequired), errors.Is(err, ErrInvalidOrigin), errors.Is(err, ErrTooManyOrigins):
 		c.JSON(http.StatusBadRequest, gin.H{"error": httperr.Sanitize(err.Error())})
 	default:
 		if billing.WriteHTTPError(c, err) {

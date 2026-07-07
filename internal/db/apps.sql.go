@@ -71,7 +71,7 @@ VALUES (
     $3,
     $4
 )
-RETURNING id, name, slug, workspace_id, owner_id, created_at
+RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins
 `
 
 type CreateAppParams struct {
@@ -96,6 +96,7 @@ func (q *Queries) CreateApp(ctx context.Context, arg CreateAppParams) (App, erro
 		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.CreatedAt,
+		&i.AllowedOrigins,
 	)
 	return i, err
 }
@@ -269,7 +270,7 @@ func (q *Queries) GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiK
 }
 
 const getAppByID = `-- name: GetAppByID :one
-SELECT id, name, slug, workspace_id, owner_id, created_at
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
 FROM apps
 WHERE id = $1
 `
@@ -284,12 +285,13 @@ func (q *Queries) GetAppByID(ctx context.Context, id int64) (App, error) {
 		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.CreatedAt,
+		&i.AllowedOrigins,
 	)
 	return i, err
 }
 
 const getAppBySlug = `-- name: GetAppBySlug :one
-SELECT id, name, slug, workspace_id, owner_id, created_at
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
 FROM apps
 WHERE slug = $1
 `
@@ -304,6 +306,7 @@ func (q *Queries) GetAppBySlug(ctx context.Context, slug string) (App, error) {
 		&i.WorkspaceID,
 		&i.OwnerID,
 		&i.CreatedAt,
+		&i.AllowedOrigins,
 	)
 	return i, err
 }
@@ -422,8 +425,39 @@ func (q *Queries) ListAPIKeysByApp(ctx context.Context, appID int64) ([]ApiKey, 
 	return items, nil
 }
 
+const listAppOriginEntries = `-- name: ListAppOriginEntries :many
+SELECT id, workspace_id, allowed_origins
+FROM apps
+`
+
+type ListAppOriginEntriesRow struct {
+	ID             int64
+	WorkspaceID    int64
+	AllowedOrigins []string
+}
+
+func (q *Queries) ListAppOriginEntries(ctx context.Context) ([]ListAppOriginEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listAppOriginEntries)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAppOriginEntriesRow
+	for rows.Next() {
+		var i ListAppOriginEntriesRow
+		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.AllowedOrigins); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAppsByOwner = `-- name: ListAppsByOwner :many
-SELECT id, name, slug, workspace_id, owner_id, created_at
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
 FROM apps
 WHERE owner_id = $1
 ORDER BY created_at DESC
@@ -445,6 +479,7 @@ func (q *Queries) ListAppsByOwner(ctx context.Context, ownerID int64) ([]App, er
 			&i.WorkspaceID,
 			&i.OwnerID,
 			&i.CreatedAt,
+			&i.AllowedOrigins,
 		); err != nil {
 			return nil, err
 		}
@@ -532,4 +567,31 @@ WHERE id = $1
 func (q *Queries) TouchAPIKeyLastUsed(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, touchAPIKeyLastUsed, id)
 	return err
+}
+
+const updateAppAllowedOrigins = `-- name: UpdateAppAllowedOrigins :one
+UPDATE apps
+SET allowed_origins = $2
+WHERE id = $1
+RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+`
+
+type UpdateAppAllowedOriginsParams struct {
+	ID             int64
+	AllowedOrigins []string
+}
+
+func (q *Queries) UpdateAppAllowedOrigins(ctx context.Context, arg UpdateAppAllowedOriginsParams) (App, error) {
+	row := q.db.QueryRow(ctx, updateAppAllowedOrigins, arg.ID, arg.AllowedOrigins)
+	var i App
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.WorkspaceID,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.AllowedOrigins,
+	)
+	return i, err
 }

@@ -9,7 +9,7 @@ import (
 )
 
 type AccessTokenValidator interface {
-	ValidateAccessToken(ctx context.Context, tokenString string) (int64, error)
+	ValidateAccessToken(ctx context.Context, tokenString string) (userID int64, appID int64, err error)
 }
 
 // AuthMiddleware protects routes. Accepts JWT from Authorization header or ?token= query param.
@@ -26,7 +26,7 @@ func AuthMiddleware(validator AccessTokenValidator) gin.HandlerFunc {
 			return
 		}
 
-		userID, err := validator.ValidateAccessToken(c.Request.Context(), tokenString)
+		userID, appID, err := validator.ValidateAccessToken(c.Request.Context(), tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			c.Abort()
@@ -34,6 +34,9 @@ func AuthMiddleware(validator AccessTokenValidator) gin.HandlerFunc {
 		}
 
 		c.Set("user_id", userID)
+		if appID > 0 {
+			c.Set("app_id", appID)
+		}
 		c.Next()
 	}
 }

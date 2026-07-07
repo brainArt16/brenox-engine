@@ -1,3 +1,13 @@
+-- name: UpdateAppAllowedOrigins :one
+UPDATE apps
+SET allowed_origins = $2
+WHERE id = $1
+RETURNING *;
+
+-- name: ListAppOriginEntries :many
+SELECT id, workspace_id, allowed_origins
+FROM apps;
+
 -- name: CreateApp :one
 INSERT INTO apps (
     name,

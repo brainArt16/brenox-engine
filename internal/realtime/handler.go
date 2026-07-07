@@ -9,6 +9,7 @@ import (
 	"github.com/brainart16/brenox/internal/channels"
 	"github.com/brainart16/brenox/internal/chat"
 	"github.com/brainart16/brenox/internal/httperr"
+	"github.com/brainart16/brenox/internal/origins"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
@@ -18,20 +19,31 @@ type Handler struct {
 	chat     *chat.Service
 	channels *channels.Service
 	calls    *calls.Service
+	origins  *origins.Checker
 	cfg      Config
 	upgrader websocket.Upgrader
 }
 
-func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service, callsService *calls.Service, cfg Config) *Handler {
+func NewHandler(hub *Hub, chatService *chat.Service, channelsService *channels.Service, callsService *calls.Service, originChecker *origins.Checker, cfg Config) *Handler {
 	return &Handler{
 		hub:      hub,
 		chat:     chatService,
 		channels: channelsService,
 		calls:    callsService,
+		origins:  originChecker,
 		cfg:      cfg,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				return cfg.originAllowed(r.Header.Get("Origin"))
+				workspaceID, _ := strconv.ParseInt(r.URL.Query().Get("workspace_id"), 10, 64)
+				appID := origins.AppIDFromToken(r.Header.Get("Authorization"), r.URL.Query().Get("token"))
+				return originChecker.IsAllowed(
+					r.Context(),
+					origins.Normalize(r.Header.Get("Origin")),
+					origins.Hints{
+						AppID:       appID,
+						WorkspaceID: workspaceID,
+					},
+				)
 			},
 		},
 	}

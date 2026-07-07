@@ -223,6 +223,7 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/apps` | JWT | Create developer app (dedicated workspace) |
 | GET | `/api/apps` | JWT | List your developer apps |
 | GET | `/api/apps/:app_id` | JWT | Get app by ID (owner only) |
+| PATCH | `/api/apps/:app_id/origins` | JWT | Update per-app browser allowed origins |
 | POST | `/api/apps/:app_id/keys` | JWT | Create API key (secret shown once) |
 | GET | `/api/apps/:app_id/keys` | JWT | List API keys for app |
 | DELETE | `/api/apps/:app_id/keys/:key_id` | JWT | Revoke API key |

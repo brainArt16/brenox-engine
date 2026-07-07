@@ -9,38 +9,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-func (s *Service) ValidateAccessToken(ctx context.Context, tokenString string) (int64, error) {
+func (s *Service) ValidateAccessToken(ctx context.Context, tokenString string) (int64, int64, error) {
 	claims, err := jwt.ValidateToken(tokenString)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	if claims.ID != "" {
 		revoked, err := s.queries.IsTokenRevoked(ctx, claims.ID)
 		if err != nil {
-			return 0, err
+			return 0, 0, err
 		}
 		if revoked {
-			return 0, jwt.ErrTokenRevoked
+			return 0, 0, jwt.ErrTokenRevoked
 		}
 	}
 
 	state, err := s.queries.GetUserAuthState(ctx, claims.UserID)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	if state.SuspendedAt.Valid {
-		return 0, ErrAccountSuspended
+		return 0, 0, ErrAccountSuspended
 	}
 
 	if state.TokensInvalidatedAt.Valid && claims.IssuedAt != nil {
 		if claims.IssuedAt.Time.Before(state.TokensInvalidatedAt.Time) {
-			return 0, jwt.ErrTokenRevoked
+			return 0, 0, jwt.ErrTokenRevoked
 		}
 	}
 
-	return claims.UserID, nil
+	return claims.UserID, claims.AppID, nil
 }
 
 func (s *Service) Refresh(ctx context.Context, tokenString string) (string, error) {
@@ -74,7 +74,7 @@ func (s *Service) Refresh(ctx context.Context, tokenString string) (string, erro
 		}
 	}
 
-	newToken, err := jwt.GenerateToken(claims.UserID)
+	newToken, err := jwt.GenerateSessionToken(claims.UserID, claims.AppID)
 	if err != nil {
 		return "", ErrInvalidToken
 	}

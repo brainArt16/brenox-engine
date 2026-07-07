@@ -21,12 +21,13 @@ type ApiKey struct {
 }
 
 type App struct {
-	ID          int64
-	Name        string
-	Slug        string
-	WorkspaceID int64
-	OwnerID     int64
-	CreatedAt   pgtype.Timestamptz
+	ID             int64
+	Name           string
+	Slug           string
+	WorkspaceID    int64
+	OwnerID        int64
+	CreatedAt      pgtype.Timestamptz
+	AllowedOrigins []string
 }
 
 type AppSubscription struct {

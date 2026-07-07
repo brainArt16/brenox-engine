@@ -74,7 +74,7 @@ func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessi
 		return SessionResponse{}, err
 	}
 
-	token, err := brenoxjwt.GenerateToken(userID)
+	token, err := brenoxjwt.GenerateSessionToken(userID, app.ID)
 	if err != nil {
 		return SessionResponse{}, err
 	}

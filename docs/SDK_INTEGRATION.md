@@ -119,13 +119,23 @@ curl -s 'http://localhost:8080/api/workspaces/1/channels/1/messages?limit=50&off
 
 ## Browser CORS
 
-Configure allowed origins for browser SDKs:
+Brenox uses **two layers** of browser origin allowlisting:
 
-```env
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+1. **Platform origins** — `CORS_ALLOWED_ORIGINS` / `WS_ALLOWED_ORIGINS` for the Brenox console and first-party sites (e.g. `https://www.breno-x.com`).
+2. **Per-app origins** — each developer app stores its own `allowed_origins` list. Configure via:
+
+```bash
+curl -s -X PATCH http://localhost:8080/api/apps/1/origins \
+  -H 'Authorization: Bearer <user-jwt>' \
+  -H 'Content-Type: application/json' \
+  -d '{"allowed_origins":["https://app.example.com","http://localhost:3000"]}'
 ```
 
-Falls back to `WS_ALLOWED_ORIGINS` when unset. Preflight (`OPTIONS`) is supported for `Authorization`, `Content-Type`, `Idempotency-Key`, and `X-API-Key`.
+Embed session tokens include `app_id` in the JWT. Browser REST + WebSocket requests from customer frontends are allowed when the request `Origin` matches that app's list (or a platform origin).
+
+Preflight (`OPTIONS`) is supported for `Authorization`, `Content-Type`, `Idempotency-Key`, and `X-API-Key`.
+
+Server-side `/v1/*` integrations with API keys are not subject to browser CORS.
 
 ## Developer API (server-side integrations)
 

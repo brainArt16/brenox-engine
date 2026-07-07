@@ -10,6 +10,7 @@ import (
 	"time"
 
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/origins"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -19,6 +20,7 @@ var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 type Service struct {
 	queries *db.Queries
 	billing BillingHook
+	origins *origins.Checker
 }
 
 type BillingHook interface {
@@ -32,6 +34,10 @@ func NewService(queries *db.Queries) *Service {
 
 func (s *Service) SetBilling(hook BillingHook) {
 	s.billing = hook
+}
+
+func (s *Service) SetOriginChecker(checker *origins.Checker) {
+	s.origins = checker
 }
 
 type AuthenticatedApp struct {
@@ -261,6 +267,41 @@ func (s *Service) GetAppForOwner(ctx context.Context, appID, ownerID int64) (App
 	return toAppResponse(app), nil
 }
 
+func (s *Service) UpdateAllowedOrigins(ctx context.Context, appID, ownerID int64, req UpdateAllowedOriginsRequest) (AppResponse, error) {
+	if _, err := s.assertAppOwner(ctx, appID, ownerID); err != nil {
+		return AppResponse{}, err
+	}
+
+	normalized, err := origins.NormalizeList(req.AllowedOrigins)
+	if err != nil {
+		switch {
+		case errors.Is(err, origins.ErrInvalidOrigin):
+			return AppResponse{}, ErrInvalidOrigin
+		case errors.Is(err, origins.ErrTooManyOrigins):
+			return AppResponse{}, ErrTooManyOrigins
+		default:
+			return AppResponse{}, err
+		}
+	}
+
+	app, err := s.queries.UpdateAppAllowedOrigins(ctx, db.UpdateAppAllowedOriginsParams{
+		ID:              appID,
+		AllowedOrigins:  normalized,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AppResponse{}, ErrNotFound
+		}
+		return AppResponse{}, err
+	}
+
+	if s.origins != nil {
+		s.origins.Invalidate()
+	}
+
+	return toAppResponse(app), nil
+}
+
 func (s *Service) ListWebhooks(ctx context.Context, appID, ownerID int64) ([]WebhookResponse, error) {
 	if _, err := s.assertAppOwner(ctx, appID, ownerID); err != nil {
 		return nil, err
@@ -332,13 +373,18 @@ func randomSecret() (string, error) {
 }
 
 func toAppResponse(app db.App) AppResponse {
+	allowed := app.AllowedOrigins
+	if allowed == nil {
+		allowed = []string{}
+	}
 	return AppResponse{
-		ID:          app.ID,
-		Name:        app.Name,
-		Slug:        app.Slug,
-		WorkspaceID: app.WorkspaceID,
-		OwnerID:     app.OwnerID,
-		CreatedAt:   formatTime(app.CreatedAt),
+		ID:             app.ID,
+		Name:           app.Name,
+		Slug:           app.Slug,
+		WorkspaceID:    app.WorkspaceID,
+		OwnerID:        app.OwnerID,
+		CreatedAt:      formatTime(app.CreatedAt),
+		AllowedOrigins: allowed,
 	}
 }
 
