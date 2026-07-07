@@ -11,6 +11,7 @@ import (
 
 	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/origins"
+	"github.com/brainart16/brenox/internal/sandbox"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -21,6 +22,7 @@ type Service struct {
 	queries *db.Queries
 	billing BillingHook
 	origins *origins.Checker
+	sandbox sandbox.Config
 }
 
 type BillingHook interface {
@@ -29,7 +31,7 @@ type BillingHook interface {
 }
 
 func NewService(queries *db.Queries) *Service {
-	return &Service{queries: queries}
+	return &Service{queries: queries, sandbox: sandbox.LoadConfig()}
 }
 
 func (s *Service) SetBilling(hook BillingHook) {
@@ -145,12 +147,18 @@ func (s *Service) CreateAPIKey(ctx context.Context, appID, ownerID int64, req Cr
 		return APIKeyCreatedResponse{}, err
 	}
 
+	expiresAt := pgtype.Timestamptz{}
+	if req.Sandbox && s.sandbox.APIKeyTTL > 0 {
+		expiresAt = pgtype.Timestamptz{Time: time.Now().UTC().Add(s.sandbox.APIKeyTTL), Valid: true}
+	}
+
 	key, err := s.queries.CreateAPIKey(ctx, db.CreateAPIKeyParams{
 		AppID:     app.ID,
 		Name:      name,
 		KeyPrefix: prefix,
 		KeyHash:   hash,
 		IsSandbox: req.Sandbox,
+		ExpiresAt: expiresAt,
 	})
 	if err != nil {
 		return APIKeyCreatedResponse{}, err
@@ -211,6 +219,9 @@ func (s *Service) AuthenticateAPIKey(ctx context.Context, plainKey string) (Auth
 	}
 
 	if key.KeyHash != HashAPIKey(plainKey) {
+		return AuthenticatedApp{}, ErrInvalidKey
+	}
+	if key.IsSandbox && key.ExpiresAt.Valid && !key.ExpiresAt.Time.After(time.Now()) {
 		return AuthenticatedApp{}, ErrInvalidKey
 	}
 
@@ -303,8 +314,8 @@ func (s *Service) UpdateAllowedOrigins(ctx context.Context, appID, ownerID int64
 	}
 
 	app, err := s.queries.UpdateAppAllowedOrigins(ctx, db.UpdateAppAllowedOriginsParams{
-		ID:              appID,
-		AllowedOrigins:  normalized,
+		ID:             appID,
+		AllowedOrigins: normalized,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -421,6 +432,9 @@ func toAPIKeyResponse(key db.ApiKey) APIKeyResponse {
 	}
 	if key.LastUsedAt.Valid {
 		resp.LastUsed = formatTime(key.LastUsedAt)
+	}
+	if key.ExpiresAt.Valid {
+		resp.ExpiresAt = formatTime(key.ExpiresAt)
 	}
 	return resp
 }

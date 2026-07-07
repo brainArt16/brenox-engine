@@ -4,7 +4,10 @@ info:
   version: 1.0.0
   description: |
     Public HTTP API for third-party integrations. Authenticate with an API key
-    via `Authorization: Bearer bx_live_...` or `X-API-Key` header.
+    via `Authorization: Bearer bx_live_...` / `bx_test_...` or `X-API-Key` header.
+
+    Sandbox (`bx_test_*`) keys use the same host but are isolated to the app sandbox
+    workspace. They have stricter rate limits, hard caps, key expiry, and TTL cleanup.
 
     Create apps and API keys via the JWT-protected management routes under `/api/apps`.
 
@@ -43,6 +46,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '429':
           $ref: '#/components/responses/RateLimited'
+        '403':
+          $ref: '#/components/responses/Error'
 
   /v1/sessions:
     post:
@@ -86,6 +91,8 @@ paths:
                 $ref: '#/components/schemas/ChannelResponse'
         '409':
           $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
 
   /v1/messages:
     post:
@@ -105,6 +112,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
+        '403':
+          $ref: '#/components/responses/Error'
     get:
       summary: List messages
       parameters:
@@ -183,7 +192,11 @@ paths:
                   default: false
       responses:
         '201':
-          description: API key created; secret shown once
+          description: API key created; secret shown once. Sandbox keys include expires_at.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyCreatedResponse'
 
 components:
   securitySchemes:
@@ -244,6 +257,9 @@ components:
           type: string
         workspace_id:
           type: integer
+        environment:
+          type: string
+          enum: [live, sandbox]
         channel_id:
           type: integer
         user:
@@ -310,6 +326,30 @@ components:
           properties:
             username:
               type: string
+
+    APIKeyCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        app_id:
+          type: integer
+        name:
+          type: string
+        key_prefix:
+          type: string
+        is_sandbox:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        secret:
+          type: string
+          description: Full API key; shown once.
 
     Error:
       type: object

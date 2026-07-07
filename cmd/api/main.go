@@ -13,33 +13,34 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
-	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/attachments"
 	"github.com/brainart16/brenox/internal/database"
+	db "github.com/brainart16/brenox/internal/db"
 	"github.com/brainart16/brenox/internal/health"
-	"github.com/brainart16/brenox/internal/version"
 	"github.com/brainart16/brenox/internal/metrics"
 	"github.com/brainart16/brenox/internal/notifications"
 	"github.com/brainart16/brenox/internal/origins"
 	"github.com/brainart16/brenox/internal/presence"
 	redisutil "github.com/brainart16/brenox/internal/redis"
+	"github.com/brainart16/brenox/internal/sandbox"
 	"github.com/brainart16/brenox/internal/storage"
+	"github.com/brainart16/brenox/internal/version"
 
+	appsHandler "github.com/brainart16/brenox/internal/apps"
 	authHandler "github.com/brainart16/brenox/internal/auth"
 	"github.com/brainart16/brenox/internal/authz"
+	"github.com/brainart16/brenox/internal/billing"
+	callsHandler "github.com/brainart16/brenox/internal/calls"
 	channelsHandler "github.com/brainart16/brenox/internal/channels"
 	chatHandler "github.com/brainart16/brenox/internal/chat"
-	appsHandler "github.com/brainart16/brenox/internal/apps"
-	callsHandler "github.com/brainart16/brenox/internal/calls"
 	"github.com/brainart16/brenox/internal/developerapi"
 	middleware "github.com/brainart16/brenox/internal/middleware"
+	"github.com/brainart16/brenox/internal/platformadmin"
 	"github.com/brainart16/brenox/internal/ratelimit"
-	"github.com/brainart16/brenox/internal/webhooks"
 	realtimeHandler "github.com/brainart16/brenox/internal/realtime"
 	usersHandler "github.com/brainart16/brenox/internal/users"
+	"github.com/brainart16/brenox/internal/webhooks"
 	workspacesHandler "github.com/brainart16/brenox/internal/workspaces"
-	"github.com/brainart16/brenox/internal/platformadmin"
-	"github.com/brainart16/brenox/internal/billing"
 )
 
 func main() {
@@ -153,8 +154,10 @@ func main() {
 	chatService.SetBilling(billingService)
 	callsService.SetBilling(billingService)
 	apiRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadConfig())
+	sandboxRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.LoadSandboxConfig())
 	ipRateLimiter := ratelimit.NewLimiter(redisClient, ratelimit.IPConfigToConfig(ratelimit.LoadIPConfig()))
 	auditRecorder := middleware.NewAuditRecorder(queries)
+	sandboxCleaner := sandbox.NewCleaner(queries, sandbox.LoadConfig())
 
 	wsHandler := realtimeHandler.NewHandler(hub, chatService, channelsService, callsService, originChecker, wsConfig)
 	healthHandler := health.NewHandler(pool, redisClient)
@@ -261,7 +264,7 @@ func main() {
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))
-	v1.Use(middleware.RateLimitMiddleware(apiRateLimiter))
+	v1.Use(middleware.RateLimitMiddleware(apiRateLimiter, sandboxRateLimiter))
 	v1.Use(middleware.IdempotencyMiddleware(devAPIService))
 	v1.POST("/users", devAPIHandler.ProvisionUser)
 	v1.POST("/sessions", devAPIHandler.CreateSession)
@@ -278,6 +281,10 @@ func main() {
 		Addr:    ":" + port,
 		Handler: router,
 	}
+
+	serverCtx, stopServerCtx := context.WithCancel(context.Background())
+	defer stopServerCtx()
+	sandboxCleaner.Start(serverCtx)
 
 	go func() {
 		slog.Info("http server listening", "addr", server.Addr)

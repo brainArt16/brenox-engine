@@ -56,6 +56,7 @@ type APIKeyResponse struct {
 	CreatedAt string `json:"created_at"`
 	RevokedAt string `json:"revoked_at,omitempty"`
 	LastUsed  string `json:"last_used_at,omitempty"`
+	ExpiresAt string `json:"expires_at,omitempty"`
 }
 
 type APIKeyCreatedResponse struct {

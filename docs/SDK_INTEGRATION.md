@@ -145,12 +145,14 @@ For backend-only integrations, use API keys instead of user JWTs. See [openapi.y
 
 Create a sandbox key for development — prefix `bx_test_`. Sandbox and live keys hit the **same API host** but operate in **isolated data lanes**:
 
-| Key | Data lane | Billing | Webhooks |
-|-----|-----------|---------|----------|
-| `bx_test_*` | App sandbox workspace | Not counted | Not delivered |
-| `bx_live_*` | App production workspace | Plan quotas apply | Delivered |
+| Key | Data lane | Billing | Webhooks | Limits |
+|-----|-----------|---------|----------|--------|
+| `bx_test_*` | App sandbox workspace | Not counted | Not delivered | Sandbox caps, stricter rate limit, key expiry, TTL cleanup |
+| `bx_live_*` | App production workspace | Plan quotas apply | Delivered | Plan quotas apply |
 
 Each app has two workspaces: `workspace_id` (live) and `sandbox_workspace_id` (test). `/v1/*` routes automatically use the lane matching the key. Session JWTs include `key_env` (`sandbox` \| `live`) so browser clients cannot cross lanes.
+
+Sandbox keys are intentionally bounded even on the production API host: defaults are 100 users, 20 channels, 1000 retained messages, 30 requests/minute, 90-day key expiry, and 30-day message cleanup. Tune with `SANDBOX_MAX_USERS`, `SANDBOX_MAX_CHANNELS`, `SANDBOX_MAX_MESSAGES`, `SANDBOX_API_RATE_LIMIT_PER_MINUTE`, `SANDBOX_API_KEY_TTL_DAYS`, and `SANDBOX_DATA_TTL_DAYS`.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/apps/1/keys \
@@ -159,7 +161,7 @@ curl -s -X POST http://localhost:8080/api/apps/1/keys \
   -d '{"name":"dev","sandbox":true}'
 ```
 
-Use sandbox keys for local and CI testing against production or staging API URLs. Ship `bx_live_*` keys in production backends only.
+Use sandbox keys for local, CI, and staging testing against production or staging API URLs. Ship `bx_live_*` keys in production backends only.
 
 ### Example: provision user + send message
 

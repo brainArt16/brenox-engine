@@ -598,6 +598,7 @@ Record architectural decisions here as they are made.
 | 2026-06-06 | Workspace-scoped API paths | `/api/workspaces/:workspace_id/...` replaces flat channel routes |
 | 2026-06-06 | Channel names unique per workspace | DB index on `(workspace_id, name)` |
 | 2026-06-06 | Workspace roles: owner/admin/moderator/member | Enforced via `internal/authz`; read-only channels for announcements |
+| 2026-07-07 | Sandbox test keys stay on the production API host | Abuse prevention uses sandbox caps, stricter rate limits, key expiry, and TTL cleanup instead of blocking `bx_test_*` on `api.breno-x.com` |
 
 ---
 
@@ -605,6 +606,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Sandbox enforcement: hard caps for test users/channels/messages, stricter sandbox rate limits, sandbox key expiry, TTL cleanup, and HTTPS-only non-localhost origins |
 | 2026-07-07 | Sandbox/live polish: admin `sandbox_workspace_id`, Postman session tests, web docs + console workspace cards |
 | 2026-07-07 | Sandbox/live isolation: dual workspace per app, `key_env` JWT claim, embed workspace guard, sandbox skips billing/webhooks |
 | 2026-07-07 | Fix stuck channel calls: end call when ≤1 participant remains after leave; clear stale solo-participant calls on re-initiate |

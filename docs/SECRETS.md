@@ -24,7 +24,7 @@ Brenox never commits secrets to the repository. All sensitive values are supplie
 | Secret | Rotation procedure |
 |--------|-------------------|
 | `JWT_SECRET` | Rotate secret → all users re-login; plan maintenance window |
-| API keys | Revoke via `DELETE /api/apps/:id/keys/:key_id`, issue new key |
+| API keys | Revoke via `DELETE /api/apps/:id/keys/:key_id`, issue new key; sandbox keys also expire automatically (`SANDBOX_API_KEY_TTL_DAYS`, default 90) |
 | DB password | Update secret store → rolling restart API pods |
 | Webhook secrets | Re-register webhook to get new secret |
 
@@ -33,7 +33,7 @@ Brenox never commits secrets to the repository. All sensitive values are supplie
 - Commit `.env` files
 - Log tokens, API keys, or passwords
 - Use default `JWT_SECRET=dev-secret-change-me` in production
-- Share sandbox (`bx_test_`) keys in production builds
+- Share sandbox (`bx_test_`) keys in production builds; they are capped, rate limited, and expire by design
 
 ## Docker / Compose
 

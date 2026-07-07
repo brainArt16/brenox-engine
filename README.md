@@ -241,7 +241,9 @@ WebSocket auth accepts `Authorization: Bearer …` or `?token=` on the upgrade U
 
 Voice and video call signaling (`call.offer`, `call.answer`, `call.ice`, `call.video.*`, etc.) is sent over the channel WebSocket. See [docs/WEBRTC.md](docs/WEBRTC.md) and [docs/WEBRTC_CLIENT.md](docs/WEBRTC_CLIENT.md).
 
-**Developer API:** Authenticate with `Authorization: Bearer bx_live_...` or `X-API-Key`. Create apps/keys via JWT routes. See [docs/openapi.yaml](docs/openapi.yaml).
+**Developer API:** Authenticate with `Authorization: Bearer bx_live_...` / `bx_test_...` or `X-API-Key`. Create apps/keys via JWT routes. Sandbox keys use the same API host but are capped by `SANDBOX_MAX_USERS`, `SANDBOX_MAX_CHANNELS`, `SANDBOX_MAX_MESSAGES`, `SANDBOX_API_RATE_LIMIT_PER_MINUTE`, `SANDBOX_API_KEY_TTL_DAYS`, and `SANDBOX_DATA_TTL_DAYS`. See [docs/openapi.yaml](docs/openapi.yaml).
+
+Allowed browser origins must be HTTPS hostnames. Local development may use `localhost`, `127.0.0.1`, or `[::1]` origins over HTTP; other IP-address origins are rejected.
 
 Channel names are unique **per workspace**.
 

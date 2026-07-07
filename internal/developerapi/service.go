@@ -12,6 +12,7 @@ import (
 
 	"github.com/brainart16/brenox/internal/auth"
 	db "github.com/brainart16/brenox/internal/db"
+	"github.com/brainart16/brenox/internal/sandbox"
 	"github.com/brainart16/brenox/internal/webhooks"
 	brenoxjwt "github.com/brainart16/brenox/pkg/jwt"
 	"github.com/jackc/pgx/v5"
@@ -25,6 +26,7 @@ var (
 	ErrUserNotFound    = errors.New("user not found")
 	ErrChannelNotFound = errors.New("channel not found")
 	ErrEmptyContent    = errors.New("message content is required")
+	ErrSandboxLimit    = errors.New("sandbox limit exceeded")
 )
 
 type MessageBroadcaster interface {
@@ -36,6 +38,7 @@ type Service struct {
 	broadcast MessageBroadcaster
 	webhooks  *webhooks.Dispatcher
 	billing   AppBilling
+	sandbox   sandbox.Config
 }
 
 type AppBilling interface {
@@ -48,6 +51,7 @@ func NewService(queries *db.Queries, broadcast MessageBroadcaster, dispatcher *w
 		queries:   queries,
 		broadcast: broadcast,
 		webhooks:  dispatcher,
+		sandbox:   sandbox.LoadConfig(),
 	}
 }
 
@@ -124,6 +128,9 @@ func (s *Service) ProvisionUser(ctx context.Context, runtime RuntimeApp, req Pro
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return UserResponse{}, err
 	}
+	if err := s.checkSandboxUsers(ctx, runtime); err != nil {
+		return UserResponse{}, err
+	}
 
 	email := strings.TrimSpace(req.Email)
 	if email == "" {
@@ -178,6 +185,25 @@ func (s *Service) CreateChannel(ctx context.Context, runtime RuntimeApp, req Cre
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return ChannelResponse{}, ErrInvalidRequest
+	}
+
+	if runtime.Sandbox {
+		if existing, err := s.queries.GetChannelByNameInWorkspace(ctx, db.GetChannelByNameInWorkspaceParams{
+			WorkspaceID: runtime.WorkspaceID,
+			Name:        name,
+		}); err == nil {
+			return ChannelResponse{
+				ID:          existing.ID,
+				Name:        existing.Name,
+				WorkspaceID: existing.WorkspaceID,
+				IsReadOnly:  existing.IsReadOnly,
+			}, nil
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return ChannelResponse{}, err
+		}
+		if err := s.checkSandboxChannels(ctx, runtime); err != nil {
+			return ChannelResponse{}, err
+		}
 	}
 
 	channel, err := s.queries.CreateChannel(ctx, db.CreateChannelParams{
@@ -248,6 +274,9 @@ func (s *Service) SendMessage(ctx context.Context, runtime RuntimeApp, req SendM
 			return MessageResponse{}, err
 		}
 	}
+	if err := s.checkSandboxMessages(ctx, runtime); err != nil {
+		return MessageResponse{}, err
+	}
 
 	message, err := s.queries.CreateMessage(ctx, db.CreateMessageParams{
 		ChannelID: channel.ID,
@@ -269,6 +298,48 @@ func (s *Service) SendMessage(ctx context.Context, runtime RuntimeApp, req SendM
 	resp := toMessageResponse(message)
 	s.dispatch(ctx, runtime, "message.created", resp)
 	return resp, nil
+}
+
+func (s *Service) checkSandboxUsers(ctx context.Context, runtime RuntimeApp) error {
+	if !runtime.Sandbox || s.sandbox.MaxUsers <= 0 {
+		return nil
+	}
+	count, err := s.queries.CountSandboxAppUsers(ctx, runtime.App.ID)
+	if err != nil {
+		return err
+	}
+	if count >= s.sandbox.MaxUsers {
+		return ErrSandboxLimit
+	}
+	return nil
+}
+
+func (s *Service) checkSandboxChannels(ctx context.Context, runtime RuntimeApp) error {
+	if !runtime.Sandbox || s.sandbox.MaxChannels <= 0 {
+		return nil
+	}
+	count, err := s.queries.CountSandboxWorkspaceChannels(ctx, runtime.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	if count >= s.sandbox.MaxChannels {
+		return ErrSandboxLimit
+	}
+	return nil
+}
+
+func (s *Service) checkSandboxMessages(ctx context.Context, runtime RuntimeApp) error {
+	if !runtime.Sandbox || s.sandbox.MaxMessages <= 0 {
+		return nil
+	}
+	count, err := s.queries.CountWorkspaceMessages(ctx, runtime.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	if count >= s.sandbox.MaxMessages {
+		return ErrSandboxLimit
+	}
+	return nil
 }
 
 func (s *Service) ListMessages(ctx context.Context, runtime RuntimeApp, channelID int64, limit, offset int32) ([]MessageListItem, error) {

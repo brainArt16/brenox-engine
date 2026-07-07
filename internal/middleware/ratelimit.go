@@ -7,8 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RateLimitMiddleware(limiter *ratelimit.Limiter) gin.HandlerFunc {
+func RateLimitMiddleware(liveLimiter, sandboxLimiter *ratelimit.Limiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		limiter := liveLimiter
+		if raw, ok := c.Get("is_sandbox"); ok {
+			if isSandbox, _ := raw.(bool); isSandbox {
+				limiter = sandboxLimiter
+			}
+		}
 		if limiter == nil {
 			c.Next()
 			return

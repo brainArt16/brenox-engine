@@ -2,6 +2,7 @@ package origins
 
 import (
 	"context"
+	"net/netip"
 	"net/url"
 	"os"
 	"strconv"
@@ -89,13 +90,37 @@ func Validate(origin string) error {
 	if parsed.Host == "" {
 		return ErrInvalidOrigin
 	}
+	if parsed.User != nil {
+		return ErrInvalidOrigin
+	}
 	if parsed.Path != "" && parsed.Path != "/" {
 		return ErrInvalidOrigin
 	}
 	if parsed.RawQuery != "" || parsed.Fragment != "" {
 		return ErrInvalidOrigin
 	}
+	if !isSecurePublicOrigin(parsed) {
+		return ErrInvalidOrigin
+	}
 	return nil
+}
+
+func isSecurePublicOrigin(parsed *url.URL) bool {
+	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
+	if host == "" {
+		return false
+	}
+
+	if host == "localhost" {
+		return true
+	}
+	if addr, err := netip.ParseAddr(host); err == nil {
+		return addr.IsLoopback()
+	}
+	if parsed.Scheme != "https" {
+		return false
+	}
+	return true
 }
 
 func NormalizeList(origins []string) ([]string, error) {

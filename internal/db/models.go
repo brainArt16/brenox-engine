@@ -18,6 +18,7 @@ type ApiKey struct {
 	CreatedAt  pgtype.Timestamptz
 	RevokedAt  pgtype.Timestamptz
 	LastUsedAt pgtype.Timestamptz
+	ExpiresAt  pgtype.Timestamptz
 }
 
 type App struct {

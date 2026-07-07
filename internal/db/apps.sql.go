@@ -7,7 +7,50 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countSandboxAppUsers = `-- name: CountSandboxAppUsers :one
+SELECT COUNT(*)::BIGINT
+FROM app_users
+WHERE app_id = $1
+  AND environment = 'sandbox'
+`
+
+func (q *Queries) CountSandboxAppUsers(ctx context.Context, appID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countSandboxAppUsers, appID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countSandboxWorkspaceChannels = `-- name: CountSandboxWorkspaceChannels :one
+SELECT COUNT(*)::BIGINT
+FROM channels
+WHERE workspace_id = $1
+`
+
+func (q *Queries) CountSandboxWorkspaceChannels(ctx context.Context, workspaceID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countSandboxWorkspaceChannels, workspaceID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countWorkspaceMessages = `-- name: CountWorkspaceMessages :one
+SELECT COUNT(*)::BIGINT
+FROM messages m
+JOIN channels c ON c.id = m.channel_id
+WHERE c.workspace_id = $1
+`
+
+func (q *Queries) CountWorkspaceMessages(ctx context.Context, workspaceID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countWorkspaceMessages, workspaceID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
 
 const createAPIKey = `-- name: CreateAPIKey :one
 INSERT INTO api_keys (
@@ -15,16 +58,18 @@ INSERT INTO api_keys (
     name,
     key_prefix,
     key_hash,
-    is_sandbox
+    is_sandbox,
+    expires_at
 )
 VALUES (
     $1,
     $2,
     $3,
     $4,
-    $5
+    $5,
+    $6
 )
-RETURNING id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at
+RETURNING id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at, expires_at
 `
 
 type CreateAPIKeyParams struct {
@@ -33,6 +78,7 @@ type CreateAPIKeyParams struct {
 	KeyPrefix string
 	KeyHash   string
 	IsSandbox bool
+	ExpiresAt pgtype.Timestamptz
 }
 
 func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error) {
@@ -42,6 +88,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		arg.KeyPrefix,
 		arg.KeyHash,
 		arg.IsSandbox,
+		arg.ExpiresAt,
 	)
 	var i ApiKey
 	err := row.Scan(
@@ -54,6 +101,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.LastUsedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -238,6 +286,42 @@ func (q *Queries) CreateWebhook(ctx context.Context, arg CreateWebhookParams) (W
 	return i, err
 }
 
+const deleteExpiredEmptySandboxChannels = `-- name: DeleteExpiredEmptySandboxChannels :execrows
+DELETE FROM channels c
+USING apps a
+WHERE c.workspace_id = a.sandbox_workspace_id
+  AND c.created_at < $1
+  AND NOT EXISTS (
+    SELECT 1
+    FROM messages m
+    WHERE m.channel_id = c.id
+  )
+`
+
+func (q *Queries) DeleteExpiredEmptySandboxChannels(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredEmptySandboxChannels, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteExpiredSandboxMessages = `-- name: DeleteExpiredSandboxMessages :execrows
+DELETE FROM messages m
+USING channels c, apps a
+WHERE m.channel_id = c.id
+  AND c.workspace_id = a.sandbox_workspace_id
+  AND m.created_at < $1
+`
+
+func (q *Queries) DeleteExpiredSandboxMessages(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredSandboxMessages, createdAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const disableWebhook = `-- name: DisableWebhook :execrows
 UPDATE webhooks
 SET disabled_at = NOW()
@@ -260,7 +344,7 @@ func (q *Queries) DisableWebhook(ctx context.Context, arg DisableWebhookParams) 
 }
 
 const getAPIKeyByPrefix = `-- name: GetAPIKeyByPrefix :one
-SELECT id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at
+SELECT id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at, expires_at
 FROM api_keys
 WHERE key_prefix = $1
   AND revoked_at IS NULL
@@ -279,6 +363,7 @@ func (q *Queries) GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiK
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.LastUsedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }
@@ -409,7 +494,7 @@ func (q *Queries) GetIdempotencyKey(ctx context.Context, arg GetIdempotencyKeyPa
 }
 
 const listAPIKeysByApp = `-- name: ListAPIKeysByApp :many
-SELECT id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at
+SELECT id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at, expires_at
 FROM api_keys
 WHERE app_id = $1
 ORDER BY created_at DESC
@@ -434,6 +519,7 @@ func (q *Queries) ListAPIKeysByApp(ctx context.Context, appID int64) ([]ApiKey, 
 			&i.CreatedAt,
 			&i.RevokedAt,
 			&i.LastUsedAt,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -560,7 +646,7 @@ SET revoked_at = NOW()
 WHERE id = $1
   AND app_id = $2
   AND revoked_at IS NULL
-RETURNING id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at
+RETURNING id, app_id, name, key_prefix, key_hash, is_sandbox, created_at, revoked_at, last_used_at, expires_at
 `
 
 type RevokeAPIKeyParams struct {
@@ -581,6 +667,7 @@ func (q *Queries) RevokeAPIKey(ctx context.Context, arg RevokeAPIKeyParams) (Api
 		&i.CreatedAt,
 		&i.RevokedAt,
 		&i.LastUsedAt,
+		&i.ExpiresAt,
 	)
 	return i, err
 }

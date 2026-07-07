@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const ExpectedMigrationVersion int64 = 16
+const ExpectedMigrationVersion int64 = 17
 
 type MigrationStatus struct {
 	Version int64
@@ -46,7 +46,7 @@ func CheckMigrations(ctx context.Context, pool *pgxpool.Pool) (MigrationStatus, 
 	case version < ExpectedMigrationVersion:
 		status.OK = false
 		status.Message = fmt.Sprintf(
-			"database schema is at version %d, expected %d — run migrations (missing audit_logs, revoked_tokens, and/or platform admin columns)",
+			"database schema is at version %d, expected %d — run migrations before serving traffic",
 			version,
 			ExpectedMigrationVersion,
 		)

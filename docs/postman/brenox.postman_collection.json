@@ -668,7 +668,7 @@
               "raw": "{\n  \"allowed_origins\": [\n    \"https://app.example.com\",\n    \"http://localhost:3000\"\n  ]\n}"
             },
             "url": "{{baseUrl}}/api/apps/{{appId}}/origins",
-            "description": "Per-app browser origins for CORS and WebSocket. Platform console origins still use CORS_ALLOWED_ORIGINS / WS_ALLOWED_ORIGINS."
+            "description": "Per-app browser origins for CORS and WebSocket. Origins must be HTTPS hostnames, except localhost/loopback HTTP origins for local development. Platform console origins still use CORS_ALLOWED_ORIGINS / WS_ALLOWED_ORIGINS."
           }
         },
         {
@@ -682,6 +682,9 @@
                   "if (json.secret) {",
                   "  pm.collectionVariables.set('apiKey', json.secret);",
                   "  pm.environment.set('apiKey', json.secret);",
+                  "}",
+                  "if (json.expires_at) {",
+                  "  pm.environment.set('apiKeyExpiresAt', json.expires_at);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -694,7 +697,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"name\": \"sandbox\",\n  \"sandbox\": true\n}" },
             "url": "{{baseUrl}}/api/apps/{{appId}}/keys",
-            "description": "Secret shown once. bx_test_* routes /v1 to sandbox_workspace_id; bx_live_* routes to workspace_id. Webhooks fire only for live keys."
+            "description": "Secret shown once. bx_test_* routes /v1 to sandbox_workspace_id and has sandbox caps, stricter rate limit, and expires_at; bx_live_* routes to workspace_id. Webhooks fire only for live keys."
           }
         },
         {

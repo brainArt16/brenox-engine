@@ -47,14 +47,16 @@ INSERT INTO api_keys (
     name,
     key_prefix,
     key_hash,
-    is_sandbox
+    is_sandbox,
+    expires_at
 )
 VALUES (
     $1,
     $2,
     $3,
     $4,
-    $5
+    $5,
+    $6
 )
 RETURNING *;
 
@@ -82,6 +84,41 @@ RETURNING *;
 UPDATE api_keys
 SET last_used_at = NOW()
 WHERE id = $1;
+
+-- name: CountSandboxAppUsers :one
+SELECT COUNT(*)::BIGINT
+FROM app_users
+WHERE app_id = $1
+  AND environment = 'sandbox';
+
+-- name: CountSandboxWorkspaceChannels :one
+SELECT COUNT(*)::BIGINT
+FROM channels
+WHERE workspace_id = $1;
+
+-- name: CountWorkspaceMessages :one
+SELECT COUNT(*)::BIGINT
+FROM messages m
+JOIN channels c ON c.id = m.channel_id
+WHERE c.workspace_id = $1;
+
+-- name: DeleteExpiredSandboxMessages :execrows
+DELETE FROM messages m
+USING channels c, apps a
+WHERE m.channel_id = c.id
+  AND c.workspace_id = a.sandbox_workspace_id
+  AND m.created_at < $1;
+
+-- name: DeleteExpiredEmptySandboxChannels :execrows
+DELETE FROM channels c
+USING apps a
+WHERE c.workspace_id = a.sandbox_workspace_id
+  AND c.created_at < $1
+  AND NOT EXISTS (
+    SELECT 1
+    FROM messages m
+    WHERE m.channel_id = c.id
+  );
 
 -- name: CreateAppUser :one
 INSERT INTO app_users (

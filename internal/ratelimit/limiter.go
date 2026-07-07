@@ -35,6 +35,20 @@ func LoadConfig() Config {
 	return cfg
 }
 
+func LoadSandboxConfig() Config {
+	cfg := Config{RequestsPerMinute: 30}
+	raw := strings.TrimSpace(os.Getenv("SANDBOX_API_RATE_LIMIT_PER_MINUTE"))
+	if raw == "" {
+		return cfg
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value <= 0 {
+		return cfg
+	}
+	cfg.RequestsPerMinute = value
+	return cfg
+}
+
 type Config struct {
 	RequestsPerMinute int
 }
