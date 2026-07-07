@@ -196,6 +196,7 @@ func main() {
 	api.GET("/workspaces/:workspace_id", workspacesHandlerInstance.GetWorkspace)
 
 	workspaceAPI := api.Group("/workspaces/:workspace_id")
+	workspaceAPI.Use(middleware.EmbedWorkspaceGuard(queries))
 	workspaceAPI.GET("/members", workspacesHandlerInstance.ListMembers)
 	workspaceAPI.POST("/members", workspacesHandlerInstance.AddMember)
 	workspaceAPI.DELETE("/members/:user_id", workspacesHandlerInstance.RemoveMember)
@@ -217,7 +218,7 @@ func main() {
 	api.PATCH("/users/me/password", usersHandlerInstance.ChangePassword)
 	api.GET("/users/me/status", presenceHandler.GetMyStatus)
 	api.PATCH("/users/me/status", presenceHandler.UpdateMyStatus)
-	api.GET("/ws", wsHandler.HandleWebSocket)
+	api.GET("/ws", middleware.EmbedWorkspaceQueryGuard(queries), wsHandler.HandleWebSocket)
 
 	api.POST("/apps", appsHandlerInstance.CreateApp)
 	api.GET("/apps", appsHandlerInstance.ListApps)

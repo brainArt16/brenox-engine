@@ -78,7 +78,8 @@ WHERE plan_slug = $1;
 -- name: GetAppByWorkspaceID :one
 SELECT *
 FROM apps
-WHERE workspace_id = $1;
+WHERE workspace_id = $1
+   OR sandbox_workspace_id = $1;
 
 -- name: CreateAppSubscription :one
 INSERT INTO app_subscriptions (

@@ -63,22 +63,25 @@ INSERT INTO apps (
     name,
     slug,
     workspace_id,
+    sandbox_workspace_id,
     owner_id
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
-RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 `
 
 type CreateAppParams struct {
-	Name        string
-	Slug        string
-	WorkspaceID int64
-	OwnerID     int64
+	Name               string
+	Slug               string
+	WorkspaceID        int64
+	SandboxWorkspaceID int64
+	OwnerID            int64
 }
 
 func (q *Queries) CreateApp(ctx context.Context, arg CreateAppParams) (App, error) {
@@ -86,6 +89,7 @@ func (q *Queries) CreateApp(ctx context.Context, arg CreateAppParams) (App, erro
 		arg.Name,
 		arg.Slug,
 		arg.WorkspaceID,
+		arg.SandboxWorkspaceID,
 		arg.OwnerID,
 	)
 	var i App
@@ -97,6 +101,7 @@ func (q *Queries) CreateApp(ctx context.Context, arg CreateAppParams) (App, erro
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.AllowedOrigins,
+		&i.SandboxWorkspaceID,
 	)
 	return i, err
 }
@@ -105,24 +110,32 @@ const createAppUser = `-- name: CreateAppUser :one
 INSERT INTO app_users (
     app_id,
     user_id,
-    external_id
+    external_id,
+    environment
 )
 VALUES (
     $1,
     $2,
-    $3
+    $3,
+    $4
 )
-RETURNING id, app_id, user_id, external_id, created_at
+RETURNING id, app_id, user_id, external_id, created_at, environment
 `
 
 type CreateAppUserParams struct {
-	AppID      int64
-	UserID     int64
-	ExternalID string
+	AppID       int64
+	UserID      int64
+	ExternalID  string
+	Environment string
 }
 
 func (q *Queries) CreateAppUser(ctx context.Context, arg CreateAppUserParams) (AppUser, error) {
-	row := q.db.QueryRow(ctx, createAppUser, arg.AppID, arg.UserID, arg.ExternalID)
+	row := q.db.QueryRow(ctx, createAppUser,
+		arg.AppID,
+		arg.UserID,
+		arg.ExternalID,
+		arg.Environment,
+	)
 	var i AppUser
 	err := row.Scan(
 		&i.ID,
@@ -130,6 +143,7 @@ func (q *Queries) CreateAppUser(ctx context.Context, arg CreateAppUserParams) (A
 		&i.UserID,
 		&i.ExternalID,
 		&i.CreatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
@@ -270,7 +284,7 @@ func (q *Queries) GetAPIKeyByPrefix(ctx context.Context, keyPrefix string) (ApiK
 }
 
 const getAppByID = `-- name: GetAppByID :one
-SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 FROM apps
 WHERE id = $1
 `
@@ -286,12 +300,13 @@ func (q *Queries) GetAppByID(ctx context.Context, id int64) (App, error) {
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.AllowedOrigins,
+		&i.SandboxWorkspaceID,
 	)
 	return i, err
 }
 
 const getAppBySlug = `-- name: GetAppBySlug :one
-SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 FROM apps
 WHERE slug = $1
 `
@@ -307,24 +322,27 @@ func (q *Queries) GetAppBySlug(ctx context.Context, slug string) (App, error) {
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.AllowedOrigins,
+		&i.SandboxWorkspaceID,
 	)
 	return i, err
 }
 
 const getAppUserByExternalID = `-- name: GetAppUserByExternalID :one
-SELECT id, app_id, user_id, external_id, created_at
+SELECT id, app_id, user_id, external_id, created_at, environment
 FROM app_users
 WHERE app_id = $1
   AND external_id = $2
+  AND environment = $3
 `
 
 type GetAppUserByExternalIDParams struct {
-	AppID      int64
-	ExternalID string
+	AppID       int64
+	ExternalID  string
+	Environment string
 }
 
 func (q *Queries) GetAppUserByExternalID(ctx context.Context, arg GetAppUserByExternalIDParams) (AppUser, error) {
-	row := q.db.QueryRow(ctx, getAppUserByExternalID, arg.AppID, arg.ExternalID)
+	row := q.db.QueryRow(ctx, getAppUserByExternalID, arg.AppID, arg.ExternalID, arg.Environment)
 	var i AppUser
 	err := row.Scan(
 		&i.ID,
@@ -332,12 +350,13 @@ func (q *Queries) GetAppUserByExternalID(ctx context.Context, arg GetAppUserByEx
 		&i.UserID,
 		&i.ExternalID,
 		&i.CreatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
 
 const getAppUserByUserID = `-- name: GetAppUserByUserID :one
-SELECT id, app_id, user_id, external_id, created_at
+SELECT id, app_id, user_id, external_id, created_at, environment
 FROM app_users
 WHERE app_id = $1
   AND user_id = $2
@@ -357,6 +376,7 @@ func (q *Queries) GetAppUserByUserID(ctx context.Context, arg GetAppUserByUserID
 		&i.UserID,
 		&i.ExternalID,
 		&i.CreatedAt,
+		&i.Environment,
 	)
 	return i, err
 }
@@ -426,14 +446,15 @@ func (q *Queries) ListAPIKeysByApp(ctx context.Context, appID int64) ([]ApiKey, 
 }
 
 const listAppOriginEntries = `-- name: ListAppOriginEntries :many
-SELECT id, workspace_id, allowed_origins
+SELECT id, workspace_id, sandbox_workspace_id, allowed_origins
 FROM apps
 `
 
 type ListAppOriginEntriesRow struct {
-	ID             int64
-	WorkspaceID    int64
-	AllowedOrigins []string
+	ID                 int64
+	WorkspaceID        int64
+	SandboxWorkspaceID int64
+	AllowedOrigins     []string
 }
 
 func (q *Queries) ListAppOriginEntries(ctx context.Context) ([]ListAppOriginEntriesRow, error) {
@@ -445,7 +466,12 @@ func (q *Queries) ListAppOriginEntries(ctx context.Context) ([]ListAppOriginEntr
 	var items []ListAppOriginEntriesRow
 	for rows.Next() {
 		var i ListAppOriginEntriesRow
-		if err := rows.Scan(&i.ID, &i.WorkspaceID, &i.AllowedOrigins); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.SandboxWorkspaceID,
+			&i.AllowedOrigins,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -457,7 +483,7 @@ func (q *Queries) ListAppOriginEntries(ctx context.Context) ([]ListAppOriginEntr
 }
 
 const listAppsByOwner = `-- name: ListAppsByOwner :many
-SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 FROM apps
 WHERE owner_id = $1
 ORDER BY created_at DESC
@@ -480,6 +506,7 @@ func (q *Queries) ListAppsByOwner(ctx context.Context, ownerID int64) ([]App, er
 			&i.OwnerID,
 			&i.CreatedAt,
 			&i.AllowedOrigins,
+			&i.SandboxWorkspaceID,
 		); err != nil {
 			return nil, err
 		}
@@ -573,7 +600,7 @@ const updateAppAllowedOrigins = `-- name: UpdateAppAllowedOrigins :one
 UPDATE apps
 SET allowed_origins = $2
 WHERE id = $1
-RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+RETURNING id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 `
 
 type UpdateAppAllowedOriginsParams struct {
@@ -592,6 +619,7 @@ func (q *Queries) UpdateAppAllowedOrigins(ctx context.Context, arg UpdateAppAllo
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.AllowedOrigins,
+		&i.SandboxWorkspaceID,
 	)
 	return i, err
 }

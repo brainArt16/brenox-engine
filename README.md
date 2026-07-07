@@ -220,7 +220,7 @@ All channel and message routes are scoped under a workspace.
 | POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
 | POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
 | POST | `/api/calls/:id/leave` | JWT | Leave call |
-| POST | `/api/apps` | JWT | Create developer app (dedicated workspace) |
+| POST | `/api/apps` | JWT | Create developer app (live + sandbox workspaces) |
 | GET | `/api/apps` | JWT | List your developer apps |
 | GET | `/api/apps/:app_id` | JWT | Get app by ID (owner only) |
 | PATCH | `/api/apps/:app_id/origins` | JWT | Update per-app browser allowed origins |

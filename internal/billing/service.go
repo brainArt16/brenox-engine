@@ -303,6 +303,9 @@ func (s *Service) CheckMessageQuotaByWorkspace(ctx context.Context, workspaceID 
 		}
 		return err
 	}
+	if workspaceID == app.SandboxWorkspaceID {
+		return nil
+	}
 	return s.CheckMessageQuota(ctx, app.ID)
 }
 
@@ -318,6 +321,9 @@ func (s *Service) RecordMessageByWorkspaceID(ctx context.Context, workspaceID in
 			return nil
 		}
 		return err
+	}
+	if workspaceID == app.SandboxWorkspaceID {
+		return nil
 	}
 	return s.RecordMessageByAppID(ctx, app.ID)
 }

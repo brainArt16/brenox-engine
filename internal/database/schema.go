@@ -7,7 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const ExpectedMigrationVersion int64 = 15
+const ExpectedMigrationVersion int64 = 16
 
 type MigrationStatus struct {
 	Version int64

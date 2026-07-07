@@ -33,13 +33,14 @@ type CreateWebhookRequest struct {
 }
 
 type AppResponse struct {
-	ID              int64    `json:"id"`
-	Name            string   `json:"name"`
-	Slug            string   `json:"slug"`
-	WorkspaceID     int64    `json:"workspace_id"`
-	OwnerID         int64    `json:"owner_id"`
-	CreatedAt       string   `json:"created_at"`
-	AllowedOrigins  []string `json:"allowed_origins"`
+	ID                 int64    `json:"id"`
+	Name               string   `json:"name"`
+	Slug               string   `json:"slug"`
+	WorkspaceID        int64    `json:"workspace_id"`
+	SandboxWorkspaceID int64    `json:"sandbox_workspace_id"`
+	OwnerID            int64    `json:"owner_id"`
+	CreatedAt          string   `json:"created_at"`
+	AllowedOrigins     []string `json:"allowed_origins"`
 }
 
 type UpdateAllowedOriginsRequest struct {

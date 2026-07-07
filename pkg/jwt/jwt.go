@@ -16,8 +16,9 @@ var ErrTokenRevoked = errors.New("token revoked")
 
 // CustomClaims defines data stored inside JWT token.
 type CustomClaims struct {
-	UserID int64 `json:"user_id"`
-	AppID  int64 `json:"app_id,omitempty"`
+	UserID int64  `json:"user_id"`
+	AppID  int64  `json:"app_id,omitempty"`
+	KeyEnv string `json:"key_env,omitempty"`
 	jwtlib.RegisteredClaims
 }
 
@@ -51,11 +52,12 @@ func refreshGracePeriod() time.Duration {
 
 // GenerateToken creates a signed access JWT with a unique token ID (jti).
 func GenerateToken(userID int64) (string, error) {
-	return GenerateSessionToken(userID, 0)
+	return GenerateSessionToken(userID, 0, false)
 }
 
 // GenerateSessionToken creates a JWT for an end-user session. appID is set for embed clients.
-func GenerateSessionToken(userID, appID int64) (string, error) {
+// sandbox selects the sandbox data lane when appID is set.
+func GenerateSessionToken(userID, appID int64, sandbox bool) (string, error) {
 	now := time.Now()
 	claims := CustomClaims{
 		UserID: userID,
@@ -66,12 +68,28 @@ func GenerateSessionToken(userID, appID int64) (string, error) {
 			IssuedAt:  jwtlib.NewNumericDate(now),
 		},
 	}
+	if appID > 0 {
+		claims.KeyEnv = "live"
+		if sandbox {
+			claims.KeyEnv = "sandbox"
+		}
+	}
 
 	token := jwtlib.NewWithClaims(jwtlib.SigningMethodHS256, claims)
 	return token.SignedString(tokenSecret())
 }
 
-// TokenExpiry returns the expiration time encoded in a token, if present.
+// KeyEnv returns the embed environment claim, defaulting to live for legacy tokens.
+func KeyEnv(tokenString string) string {
+	claims, err := parseClaims(tokenString)
+	if err != nil || claims.AppID == 0 {
+		return ""
+	}
+	if claims.KeyEnv == "" {
+		return "live"
+	}
+	return claims.KeyEnv
+}
 func TokenExpiry(tokenString string) (time.Time, bool) {
 	claims, err := parseClaims(tokenString)
 	if err != nil || claims.ExpiresAt == nil {

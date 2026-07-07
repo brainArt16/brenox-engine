@@ -21,13 +21,14 @@ type ApiKey struct {
 }
 
 type App struct {
-	ID             int64
-	Name           string
-	Slug           string
-	WorkspaceID    int64
-	OwnerID        int64
-	CreatedAt      pgtype.Timestamptz
-	AllowedOrigins []string
+	ID                 int64
+	Name               string
+	Slug               string
+	WorkspaceID        int64
+	OwnerID            int64
+	CreatedAt          pgtype.Timestamptz
+	AllowedOrigins     []string
+	SandboxWorkspaceID int64
 }
 
 type AppSubscription struct {
@@ -44,11 +45,12 @@ type AppSubscription struct {
 }
 
 type AppUser struct {
-	ID         int64
-	AppID      int64
-	UserID     int64
-	ExternalID string
-	CreatedAt  pgtype.Timestamptz
+	ID          int64
+	AppID       int64
+	UserID      int64
+	ExternalID  string
+	CreatedAt   pgtype.Timestamptz
+	Environment string
 }
 
 type Attachment struct {

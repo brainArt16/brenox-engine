@@ -56,8 +56,9 @@ type CreateSessionRequest struct {
 }
 
 type SessionResponse struct {
-	Token       string        `json:"token"`
-	WorkspaceID int64         `json:"workspace_id"`
-	ChannelID   int64         `json:"channel_id,omitempty"`
-	User        UserResponse  `json:"user"`
+	Token       string       `json:"token"`
+	WorkspaceID int64        `json:"workspace_id"`
+	Environment string       `json:"environment"`
+	ChannelID   int64        `json:"channel_id,omitempty"`
+	User        UserResponse `json:"user"`
 }

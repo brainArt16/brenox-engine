@@ -19,12 +19,12 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrInvalidRequest    = errors.New("invalid request")
-	ErrExternalIDTaken   = errors.New("external_id already exists")
-	ErrUserNotFound      = errors.New("user not found")
-	ErrChannelNotFound   = errors.New("channel not found")
-	ErrEmptyContent      = errors.New("message content is required")
+	ErrNotFound        = errors.New("resource not found")
+	ErrInvalidRequest  = errors.New("invalid request")
+	ErrExternalIDTaken = errors.New("external_id already exists")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrChannelNotFound = errors.New("channel not found")
+	ErrEmptyContent    = errors.New("message content is required")
 )
 
 type MessageBroadcaster interface {
@@ -32,10 +32,10 @@ type MessageBroadcaster interface {
 }
 
 type Service struct {
-	queries    *db.Queries
-	broadcast  MessageBroadcaster
-	webhooks   *webhooks.Dispatcher
-	billing    AppBilling
+	queries   *db.Queries
+	broadcast MessageBroadcaster
+	webhooks  *webhooks.Dispatcher
+	billing   AppBilling
 }
 
 type AppBilling interface {
@@ -55,13 +55,13 @@ func (s *Service) SetBilling(billing AppBilling) {
 	s.billing = billing
 }
 
-func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessionRequest) (SessionResponse, error) {
+func (s *Service) CreateSession(ctx context.Context, runtime RuntimeApp, req CreateSessionRequest) (SessionResponse, error) {
 	externalID := strings.TrimSpace(req.ExternalID)
 	if externalID == "" {
 		return SessionResponse{}, ErrInvalidRequest
 	}
 
-	userID, err := s.resolveUserID(ctx, app, 0, externalID)
+	userID, err := s.resolveUserID(ctx, runtime, 0, externalID)
 	if err != nil {
 		return SessionResponse{}, err
 	}
@@ -74,21 +74,22 @@ func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessi
 		return SessionResponse{}, err
 	}
 
-	token, err := brenoxjwt.GenerateSessionToken(userID, app.ID)
+	token, err := brenoxjwt.GenerateSessionToken(userID, runtime.App.ID, runtime.Sandbox)
 	if err != nil {
 		return SessionResponse{}, err
 	}
 
 	resp := SessionResponse{
 		Token:       token,
-		WorkspaceID: app.WorkspaceID,
+		WorkspaceID: runtime.WorkspaceID,
+		Environment: runtime.Environment,
 		User:        toUserResponse(user, externalID),
 	}
 
 	if req.ChannelID > 0 {
 		if _, err := s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
 			ID:          req.ChannelID,
-			WorkspaceID: app.WorkspaceID,
+			WorkspaceID: runtime.WorkspaceID,
 		}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return SessionResponse{}, ErrChannelNotFound
@@ -104,15 +105,16 @@ func (s *Service) CreateSession(ctx context.Context, app db.App, req CreateSessi
 	return resp, nil
 }
 
-func (s *Service) ProvisionUser(ctx context.Context, app db.App, req ProvisionUserRequest) (UserResponse, error) {
+func (s *Service) ProvisionUser(ctx context.Context, runtime RuntimeApp, req ProvisionUserRequest) (UserResponse, error) {
 	externalID := strings.TrimSpace(req.ExternalID)
 	if externalID == "" {
 		return UserResponse{}, ErrInvalidRequest
 	}
 
 	if existing, err := s.queries.GetAppUserByExternalID(ctx, db.GetAppUserByExternalIDParams{
-		AppID:      app.ID,
-		ExternalID: externalID,
+		AppID:       runtime.App.ID,
+		ExternalID:  externalID,
+		Environment: runtime.Environment,
 	}); err == nil {
 		user, err := s.queries.GetUserByID(ctx, existing.UserID)
 		if err != nil {
@@ -125,11 +127,11 @@ func (s *Service) ProvisionUser(ctx context.Context, app db.App, req ProvisionUs
 
 	email := strings.TrimSpace(req.Email)
 	if email == "" {
-		email = fmt.Sprintf("%s@%s.app.brenox", externalID, app.Slug)
+		email = fmt.Sprintf("%s@%s.app.brenox", externalID, runtime.App.Slug)
 	}
 	username := strings.TrimSpace(req.Username)
 	if username == "" {
-		username = fmt.Sprintf("%s_%s", app.Slug, externalID)
+		username = fmt.Sprintf("%s_%s", runtime.App.Slug, externalID)
 	}
 
 	password, err := randomPassword()
@@ -151,7 +153,7 @@ func (s *Service) ProvisionUser(ctx context.Context, app db.App, req ProvisionUs
 	}
 
 	if err := s.queries.AddWorkspaceMember(ctx, db.AddWorkspaceMemberParams{
-		WorkspaceID: app.WorkspaceID,
+		WorkspaceID: runtime.WorkspaceID,
 		UserID:      user.ID,
 		Role:        "member",
 	}); err != nil {
@@ -159,19 +161,20 @@ func (s *Service) ProvisionUser(ctx context.Context, app db.App, req ProvisionUs
 	}
 
 	if _, err := s.queries.CreateAppUser(ctx, db.CreateAppUserParams{
-		AppID:      app.ID,
-		UserID:     user.ID,
-		ExternalID: externalID,
+		AppID:       runtime.App.ID,
+		UserID:      user.ID,
+		ExternalID:  externalID,
+		Environment: runtime.Environment,
 	}); err != nil {
 		return UserResponse{}, err
 	}
 
 	resp := toUserResponse(user, externalID)
-	s.dispatch(ctx, app.ID, "user.provisioned", resp)
+	s.dispatch(ctx, runtime, "user.provisioned", resp)
 	return resp, nil
 }
 
-func (s *Service) CreateChannel(ctx context.Context, app db.App, req CreateChannelRequest) (ChannelResponse, error) {
+func (s *Service) CreateChannel(ctx context.Context, runtime RuntimeApp, req CreateChannelRequest) (ChannelResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return ChannelResponse{}, ErrInvalidRequest
@@ -179,14 +182,14 @@ func (s *Service) CreateChannel(ctx context.Context, app db.App, req CreateChann
 
 	channel, err := s.queries.CreateChannel(ctx, db.CreateChannelParams{
 		Name:        name,
-		OwnerID:     app.OwnerID,
-		WorkspaceID: app.WorkspaceID,
+		OwnerID:     runtime.App.OwnerID,
+		WorkspaceID: runtime.WorkspaceID,
 		IsReadOnly:  req.IsReadOnly,
 	})
 	if err != nil {
 		if isDuplicateChannelName(err) {
 			existing, lookupErr := s.queries.GetChannelByNameInWorkspace(ctx, db.GetChannelByNameInWorkspaceParams{
-				WorkspaceID: app.WorkspaceID,
+				WorkspaceID: runtime.WorkspaceID,
 				Name:        name,
 			})
 			if lookupErr != nil {
@@ -204,30 +207,30 @@ func (s *Service) CreateChannel(ctx context.Context, app db.App, req CreateChann
 
 	if err := s.queries.AddChannelMember(ctx, db.AddChannelMemberParams{
 		ChannelID: channel.ID,
-		UserID:    app.OwnerID,
+		UserID:    runtime.App.OwnerID,
 	}); err != nil {
 		return ChannelResponse{}, err
 	}
 
 	resp := toChannelResponse(channel)
-	s.dispatch(ctx, app.ID, "channel.created", resp)
+	s.dispatch(ctx, runtime, "channel.created", resp)
 	return resp, nil
 }
 
-func (s *Service) SendMessage(ctx context.Context, app db.App, req SendMessageRequest) (MessageResponse, error) {
+func (s *Service) SendMessage(ctx context.Context, runtime RuntimeApp, req SendMessageRequest) (MessageResponse, error) {
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
 		return MessageResponse{}, ErrEmptyContent
 	}
 
-	userID, err := s.resolveUserID(ctx, app, req.UserID, req.ExternalID)
+	userID, err := s.resolveUserID(ctx, runtime, req.UserID, req.ExternalID)
 	if err != nil {
 		return MessageResponse{}, err
 	}
 
 	channel, err := s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
 		ID:          req.ChannelID,
-		WorkspaceID: app.WorkspaceID,
+		WorkspaceID: runtime.WorkspaceID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -240,8 +243,8 @@ func (s *Service) SendMessage(ctx context.Context, app db.App, req SendMessageRe
 		return MessageResponse{}, err
 	}
 
-	if s.billing != nil {
-		if err := s.billing.CheckMessageQuota(ctx, app.ID); err != nil {
+	if !runtime.Sandbox && s.billing != nil {
+		if err := s.billing.CheckMessageQuota(ctx, runtime.App.ID); err != nil {
 			return MessageResponse{}, err
 		}
 	}
@@ -256,22 +259,22 @@ func (s *Service) SendMessage(ctx context.Context, app db.App, req SendMessageRe
 	}
 
 	if s.broadcast != nil {
-		s.broadcast.PublishMessageNew(app.WorkspaceID, channel.ID, message)
+		s.broadcast.PublishMessageNew(runtime.WorkspaceID, channel.ID, message)
 	}
 
-	if s.billing != nil {
-		_ = s.billing.RecordMessageByAppID(ctx, app.ID)
+	if !runtime.Sandbox && s.billing != nil {
+		_ = s.billing.RecordMessageByAppID(ctx, runtime.App.ID)
 	}
 
 	resp := toMessageResponse(message)
-	s.dispatch(ctx, app.ID, "message.created", resp)
+	s.dispatch(ctx, runtime, "message.created", resp)
 	return resp, nil
 }
 
-func (s *Service) ListMessages(ctx context.Context, app db.App, channelID int64, limit, offset int32) ([]MessageListItem, error) {
+func (s *Service) ListMessages(ctx context.Context, runtime RuntimeApp, channelID int64, limit, offset int32) ([]MessageListItem, error) {
 	if _, err := s.queries.GetChannelInWorkspace(ctx, db.GetChannelInWorkspaceParams{
 		ID:          channelID,
-		WorkspaceID: app.WorkspaceID,
+		WorkspaceID: runtime.WorkspaceID,
 	}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrChannelNotFound
@@ -305,16 +308,20 @@ func (s *Service) ListMessages(ctx context.Context, app db.App, channelID int64,
 	return items, nil
 }
 
-func (s *Service) resolveUserID(ctx context.Context, app db.App, userID int64, externalID string) (int64, error) {
+func (s *Service) resolveUserID(ctx context.Context, runtime RuntimeApp, userID int64, externalID string) (int64, error) {
 	if userID > 0 {
-		if _, err := s.queries.GetAppUserByUserID(ctx, db.GetAppUserByUserIDParams{
-			AppID:  app.ID,
+		appUser, err := s.queries.GetAppUserByUserID(ctx, db.GetAppUserByUserIDParams{
+			AppID:  runtime.App.ID,
 			UserID: userID,
-		}); err != nil {
+		})
+		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return 0, ErrUserNotFound
 			}
 			return 0, err
+		}
+		if appUser.Environment != runtime.Environment {
+			return 0, ErrUserNotFound
 		}
 		return userID, nil
 	}
@@ -325,8 +332,9 @@ func (s *Service) resolveUserID(ctx context.Context, app db.App, userID int64, e
 	}
 
 	appUser, err := s.queries.GetAppUserByExternalID(ctx, db.GetAppUserByExternalIDParams{
-		AppID:      app.ID,
-		ExternalID: externalID,
+		AppID:       runtime.App.ID,
+		ExternalID:  externalID,
+		Environment: runtime.Environment,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -354,11 +362,11 @@ func (s *Service) ensureChannelMember(ctx context.Context, channelID, userID int
 	})
 }
 
-func (s *Service) dispatch(ctx context.Context, appID int64, event string, payload any) {
-	if s.webhooks == nil {
+func (s *Service) dispatch(ctx context.Context, runtime RuntimeApp, event string, payload any) {
+	if s.webhooks == nil || runtime.Sandbox {
 		return
 	}
-	s.webhooks.Dispatch(ctx, appID, event, payload)
+	s.webhooks.Dispatch(ctx, runtime.App.ID, event, payload)
 }
 
 func randomPassword() (string, error) {

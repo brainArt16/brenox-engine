@@ -5,7 +5,7 @@ WHERE id = $1
 RETURNING *;
 
 -- name: ListAppOriginEntries :many
-SELECT id, workspace_id, allowed_origins
+SELECT id, workspace_id, sandbox_workspace_id, allowed_origins
 FROM apps;
 
 -- name: CreateApp :one
@@ -13,13 +13,15 @@ INSERT INTO apps (
     name,
     slug,
     workspace_id,
+    sandbox_workspace_id,
     owner_id
 )
 VALUES (
     $1,
     $2,
     $3,
-    $4
+    $4,
+    $5
 )
 RETURNING *;
 
@@ -85,12 +87,14 @@ WHERE id = $1;
 INSERT INTO app_users (
     app_id,
     user_id,
-    external_id
+    external_id,
+    environment
 )
 VALUES (
     $1,
     $2,
-    $3
+    $3,
+    $4
 )
 RETURNING *;
 
@@ -98,7 +102,8 @@ RETURNING *;
 SELECT *
 FROM app_users
 WHERE app_id = $1
-  AND external_id = $2;
+  AND external_id = $2
+  AND environment = $3;
 
 -- name: GetAppUserByUserID :one
 SELECT *

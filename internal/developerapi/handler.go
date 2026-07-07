@@ -8,7 +8,6 @@ import (
 	"github.com/brainart16/brenox/internal/billing"
 	"github.com/brainart16/brenox/internal/httperr"
 
-	db "github.com/brainart16/brenox/internal/db"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,8 +26,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		return
 	}
 
-	app := appFromContext(c)
-	session, err := h.service.CreateSession(c.Request.Context(), app, req)
+	session, err := h.service.CreateSession(c.Request.Context(), runtimeFromContext(c), req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -44,8 +42,7 @@ func (h *Handler) ProvisionUser(c *gin.Context) {
 		return
 	}
 
-	app := appFromContext(c)
-	user, err := h.service.ProvisionUser(c.Request.Context(), app, req)
+	user, err := h.service.ProvisionUser(c.Request.Context(), runtimeFromContext(c), req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -61,8 +58,7 @@ func (h *Handler) CreateChannel(c *gin.Context) {
 		return
 	}
 
-	app := appFromContext(c)
-	channel, err := h.service.CreateChannel(c.Request.Context(), app, req)
+	channel, err := h.service.CreateChannel(c.Request.Context(), runtimeFromContext(c), req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -78,8 +74,7 @@ func (h *Handler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	app := appFromContext(c)
-	message, err := h.service.SendMessage(c.Request.Context(), app, req)
+	message, err := h.service.SendMessage(c.Request.Context(), runtimeFromContext(c), req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -98,18 +93,13 @@ func (h *Handler) ListMessages(c *gin.Context) {
 	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "50"), 10, 32)
 	offset, _ := strconv.ParseInt(c.DefaultQuery("offset", "0"), 10, 32)
 
-	app := appFromContext(c)
-	messages, err := h.service.ListMessages(c.Request.Context(), app, channelID, int32(limit), int32(offset))
+	messages, err := h.service.ListMessages(c.Request.Context(), runtimeFromContext(c), channelID, int32(limit), int32(offset))
 	if err != nil {
 		writeError(c, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"messages": messages})
-}
-
-func appFromContext(c *gin.Context) db.App {
-	return c.MustGet("app").(db.App)
 }
 
 func writeError(c *gin.Context, err error) {

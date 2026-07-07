@@ -143,7 +143,14 @@ For backend-only integrations, use API keys instead of user JWTs. See [openapi.y
 
 ### Sandbox keys
 
-Create a sandbox key for development — prefix `bx_test_`, same permissions as live keys, separate rate-limit bucket:
+Create a sandbox key for development — prefix `bx_test_`. Sandbox and live keys hit the **same API host** but operate in **isolated data lanes**:
+
+| Key | Data lane | Billing | Webhooks |
+|-----|-----------|---------|----------|
+| `bx_test_*` | App sandbox workspace | Not counted | Not delivered |
+| `bx_live_*` | App production workspace | Plan quotas apply | Delivered |
+
+Each app has two workspaces: `workspace_id` (live) and `sandbox_workspace_id` (test). `/v1/*` routes automatically use the lane matching the key. Session JWTs include `key_env` (`sandbox` \| `live`) so browser clients cannot cross lanes.
 
 ```bash
 curl -s -X POST http://localhost:8080/api/apps/1/keys \
@@ -152,7 +159,7 @@ curl -s -X POST http://localhost:8080/api/apps/1/keys \
   -d '{"name":"dev","sandbox":true}'
 ```
 
-Use sandbox keys against `/v1/*` locally. Never ship sandbox secrets to production builds.
+Use sandbox keys for local and CI testing against production or staging API URLs. Ship `bx_live_*` keys in production backends only.
 
 ### Example: provision user + send message
 

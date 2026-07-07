@@ -254,9 +254,10 @@ func (q *Queries) GetActivePlan(ctx context.Context, slug string) (Plan, error) 
 }
 
 const getAppByWorkspaceID = `-- name: GetAppByWorkspaceID :one
-SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins
+SELECT id, name, slug, workspace_id, owner_id, created_at, allowed_origins, sandbox_workspace_id
 FROM apps
 WHERE workspace_id = $1
+   OR sandbox_workspace_id = $1
 `
 
 func (q *Queries) GetAppByWorkspaceID(ctx context.Context, workspaceID int64) (App, error) {
@@ -270,6 +271,7 @@ func (q *Queries) GetAppByWorkspaceID(ctx context.Context, workspaceID int64) (A
 		&i.OwnerID,
 		&i.CreatedAt,
 		&i.AllowedOrigins,
+		&i.SandboxWorkspaceID,
 	)
 	return i, err
 }

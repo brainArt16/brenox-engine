@@ -30,11 +30,16 @@ func APIKeyMiddleware(auth APIKeyAuthenticator) gin.HandlerFunc {
 			return
 		}
 
-		c.Set("app", authCtx.App)
+		sandbox := authCtx.APIKey.IsSandbox
+		workspaceID := apps.WorkspaceForSandbox(authCtx.App, sandbox)
+		effectiveApp := apps.EffectiveApp(authCtx.App, sandbox)
+
+		c.Set("app", effectiveApp)
 		c.Set("app_id", authCtx.App.ID)
-		c.Set("workspace_id", authCtx.App.WorkspaceID)
+		c.Set("workspace_id", workspaceID)
 		c.Set("api_key_id", authCtx.APIKey.ID)
-		c.Set("is_sandbox", authCtx.APIKey.IsSandbox)
+		c.Set("is_sandbox", sandbox)
+		c.Set("key_env", apps.EnvironmentFromSandbox(sandbox))
 		c.Next()
 	}
 }

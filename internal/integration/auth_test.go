@@ -49,12 +49,15 @@ func TestAuthRegisterAndLogin(t *testing.T) {
 		t.Fatal("expected token")
 	}
 
-	userID, _, err := service.ValidateAccessToken(ctx, token)
+	userID, _, keyEnv, err := service.ValidateAccessToken(ctx, token)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
 	if userID != user.ID {
 		t.Fatalf("expected user %d, got %d", user.ID, userID)
+	}
+	if keyEnv != "" {
+		t.Fatalf("expected empty key env for console login, got %q", keyEnv)
 	}
 
 	refreshed, err := service.Refresh(ctx, token)
@@ -65,7 +68,7 @@ func TestAuthRegisterAndLogin(t *testing.T) {
 		t.Fatal("expected rotated token")
 	}
 
-	if _, _, err := service.ValidateAccessToken(ctx, token); err == nil {
+	if _, _, _, err := service.ValidateAccessToken(ctx, token); err == nil {
 		t.Fatal("old token should be revoked after refresh")
 	}
 }

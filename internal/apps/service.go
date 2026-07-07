@@ -71,6 +71,15 @@ func (s *Service) CreateApp(ctx context.Context, ownerID int64, req CreateAppReq
 		return AppResponse{}, err
 	}
 
+	sandboxWorkspace, err := s.queries.CreateWorkspace(ctx, db.CreateWorkspaceParams{
+		Name:    name + " Sandbox",
+		Slug:    "app-" + slug + "-sandbox",
+		OwnerID: ownerID,
+	})
+	if err != nil {
+		return AppResponse{}, err
+	}
+
 	if err := s.queries.AddWorkspaceMember(ctx, db.AddWorkspaceMemberParams{
 		WorkspaceID: workspace.ID,
 		UserID:      ownerID,
@@ -79,11 +88,20 @@ func (s *Service) CreateApp(ctx context.Context, ownerID int64, req CreateAppReq
 		return AppResponse{}, err
 	}
 
+	if err := s.queries.AddWorkspaceMember(ctx, db.AddWorkspaceMemberParams{
+		WorkspaceID: sandboxWorkspace.ID,
+		UserID:      ownerID,
+		Role:        "owner",
+	}); err != nil {
+		return AppResponse{}, err
+	}
+
 	app, err := s.queries.CreateApp(ctx, db.CreateAppParams{
-		Name:        name,
-		Slug:        slug,
-		WorkspaceID: workspace.ID,
-		OwnerID:     ownerID,
+		Name:               name,
+		Slug:               slug,
+		WorkspaceID:        workspace.ID,
+		SandboxWorkspaceID: sandboxWorkspace.ID,
+		OwnerID:            ownerID,
 	})
 	if err != nil {
 		return AppResponse{}, err
@@ -378,13 +396,14 @@ func toAppResponse(app db.App) AppResponse {
 		allowed = []string{}
 	}
 	return AppResponse{
-		ID:             app.ID,
-		Name:           app.Name,
-		Slug:           app.Slug,
-		WorkspaceID:    app.WorkspaceID,
-		OwnerID:        app.OwnerID,
-		CreatedAt:      formatTime(app.CreatedAt),
-		AllowedOrigins: allowed,
+		ID:                 app.ID,
+		Name:               app.Name,
+		Slug:               app.Slug,
+		WorkspaceID:        app.WorkspaceID,
+		SandboxWorkspaceID: app.SandboxWorkspaceID,
+		OwnerID:            app.OwnerID,
+		CreatedAt:          formatTime(app.CreatedAt),
+		AllowedOrigins:     allowed,
 	}
 }
 

@@ -179,6 +179,9 @@ func (c *Checker) snapshot(ctx context.Context) snapshot {
 		origins := normalizeStored(row.AllowedOrigins)
 		next.byApp[row.ID] = origins
 		next.byWorkspace[row.WorkspaceID] = origins
+		if row.SandboxWorkspaceID > 0 {
+			next.byWorkspace[row.SandboxWorkspaceID] = origins
+		}
 		for _, origin := range origins {
 			unionSet[origin] = struct{}{}
 		}
