@@ -97,6 +97,9 @@ services:
       HTTP_RATE_LIMIT_PER_IP: ${HTTP_RATE_LIMIT_PER_IP:-300}
       MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-1048576}
       PLATFORM_ADMIN_EMAILS: ${PLATFORM_ADMIN_EMAILS:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_CHECKOUT_BASE_URL: ${STRIPE_CHECKOUT_BASE_URL:-http://localhost:3000}
     depends_on:
       migrate:
         condition: service_completed_successfully

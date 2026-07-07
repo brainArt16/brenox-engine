@@ -198,7 +198,7 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userE
 	}
 
 	if !plan.StripePriceID.Valid || strings.TrimSpace(plan.StripePriceID.String) == "" {
-		return CheckoutResponse{}, ErrStripeNotConfigured
+		return CheckoutResponse{}, ErrPlanStripePriceMissing
 	}
 	priceID := plan.StripePriceID.String
 

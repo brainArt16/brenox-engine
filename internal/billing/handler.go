@@ -262,6 +262,8 @@ func writeError(c *gin.Context, err error) {
 		httperr.WriteJSON(c, http.StatusConflict, httperr.ClientMessage(err, ErrPlanInUse))
 	case errors.Is(err, ErrStripeNotConfigured):
 		httperr.WriteJSON(c, http.StatusServiceUnavailable, httperr.ClientMessage(err, ErrStripeNotConfigured))
+	case errors.Is(err, ErrPlanStripePriceMissing):
+		httperr.WriteJSON(c, http.StatusServiceUnavailable, httperr.ClientMessage(err, ErrPlanStripePriceMissing))
 	case errors.Is(err, ErrMessageLimit):
 		httperr.WriteJSON(c, http.StatusPaymentRequired, httperr.ClientMessage(err, ErrMessageLimit))
 	case errors.Is(err, ErrSubscriptionInactive):
