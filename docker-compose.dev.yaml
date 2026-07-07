@@ -68,6 +68,7 @@ services:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: ${DB_NAME:-brenox}
+      DB_SSLMODE: disable
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       JWT_ACCESS_TTL_HOURS: ${JWT_ACCESS_TTL_HOURS:-24}
       JWT_REFRESH_GRACE_HOURS: ${JWT_REFRESH_GRACE_HOURS:-168}
