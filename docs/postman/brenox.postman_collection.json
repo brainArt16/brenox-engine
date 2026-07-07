@@ -966,6 +966,40 @@
             "method": "GET",
             "url": "{{baseUrl}}/api/admin/platform-settings"
           }
+        },
+        {
+          "name": "Admin List Plans",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/plans"
+          }
+        },
+        {
+          "name": "Admin Create Plan",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"pro\",\n  \"name\": \"Pro\",\n  \"price_cents\": 1500,\n  \"messages_limit\": 100000,\n  \"connections_limit\": 1000,\n  \"retention_days\": 60,\n  \"webhooks_enabled\": true,\n  \"is_active\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/plans"
+          }
+        },
+        {
+          "name": "Admin Update Plan",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price_cents\": 2500,\n  \"stripe_price_id\": \"price_xxx\",\n  \"webhooks_enabled\": true\n}"
+            },
+            "url": "{{baseUrl}}/api/admin/plans/growth"
+          }
         }
       ]
     },

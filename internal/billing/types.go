@@ -3,6 +3,7 @@ package billing
 type PlanResponse struct {
 	Slug              string `json:"slug"`
 	Name              string `json:"name"`
+	Description       string `json:"description,omitempty"`
 	PriceCents        int32  `json:"price_cents"`
 	PriceDisplay      string `json:"price_display"`
 	MessagesLimit     int32  `json:"messages_limit"`
@@ -11,6 +12,48 @@ type PlanResponse struct {
 	WebhooksEnabled   bool   `json:"webhooks_enabled"`
 	VideoCallsEnabled bool   `json:"video_calls_enabled"`
 	ModerationEnabled bool   `json:"moderation_enabled"`
+	IsHighlighted     bool   `json:"is_highlighted"`
+	SortOrder         int32  `json:"sort_order"`
+}
+
+type AdminPlanResponse struct {
+	PlanResponse
+	StripePriceID      string `json:"stripe_price_id,omitempty"`
+	IsActive           bool   `json:"is_active"`
+	SubscriptionCount  int64  `json:"subscription_count"`
+}
+
+type CreatePlanRequest struct {
+	Slug              string `json:"slug"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	PriceCents        int32  `json:"price_cents"`
+	StripePriceID     string `json:"stripe_price_id"`
+	MessagesLimit     int32  `json:"messages_limit"`
+	ConnectionsLimit  int32  `json:"connections_limit"`
+	RetentionDays     int32  `json:"retention_days"`
+	WebhooksEnabled   bool   `json:"webhooks_enabled"`
+	VideoCallsEnabled bool   `json:"video_calls_enabled"`
+	ModerationEnabled bool   `json:"moderation_enabled"`
+	IsActive          bool   `json:"is_active"`
+	IsHighlighted     bool   `json:"is_highlighted"`
+	SortOrder         int32  `json:"sort_order"`
+}
+
+type UpdatePlanRequest struct {
+	Name              *string `json:"name"`
+	Description       *string `json:"description"`
+	PriceCents        *int32  `json:"price_cents"`
+	StripePriceID     *string `json:"stripe_price_id"`
+	MessagesLimit     *int32  `json:"messages_limit"`
+	ConnectionsLimit  *int32  `json:"connections_limit"`
+	RetentionDays     *int32  `json:"retention_days"`
+	WebhooksEnabled   *bool   `json:"webhooks_enabled"`
+	VideoCallsEnabled *bool   `json:"video_calls_enabled"`
+	ModerationEnabled *bool   `json:"moderation_enabled"`
+	IsActive          *bool   `json:"is_active"`
+	IsHighlighted     *bool   `json:"is_highlighted"`
+	SortOrder         *int32  `json:"sort_order"`
 }
 
 type UsageResponse struct {

@@ -89,6 +89,19 @@ func (q *Queries) AdminListAppSubscriptions(ctx context.Context, arg AdminListAp
 	return items, nil
 }
 
+const countSubscriptionsForPlan = `-- name: CountSubscriptionsForPlan :one
+SELECT COUNT(*)::bigint
+FROM app_subscriptions
+WHERE plan_slug = $1
+`
+
+func (q *Queries) CountSubscriptionsForPlan(ctx context.Context, planSlug string) (int64, error) {
+	row := q.db.QueryRow(ctx, countSubscriptionsForPlan, planSlug)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createAppSubscription = `-- name: CreateAppSubscription :one
 INSERT INTO app_subscriptions (
     app_id,
@@ -118,6 +131,123 @@ func (q *Queries) CreateAppSubscription(ctx context.Context, arg CreateAppSubscr
 		&i.CurrentPeriodStart,
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPlan = `-- name: CreatePlan :one
+INSERT INTO plans (
+    slug,
+    name,
+    price_cents,
+    stripe_price_id,
+    messages_limit,
+    connections_limit,
+    retention_days,
+    webhooks_enabled,
+    video_calls_enabled,
+    moderation_enabled,
+    is_active,
+    is_highlighted,
+    sort_order,
+    description
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+`
+
+type CreatePlanParams struct {
+	Slug              string
+	Name              string
+	PriceCents        int32
+	StripePriceID     pgtype.Text
+	MessagesLimit     int32
+	ConnectionsLimit  int32
+	RetentionDays     int32
+	WebhooksEnabled   bool
+	VideoCallsEnabled bool
+	ModerationEnabled bool
+	IsActive          bool
+	IsHighlighted     bool
+	SortOrder         int32
+	Description       string
+}
+
+func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error) {
+	row := q.db.QueryRow(ctx, createPlan,
+		arg.Slug,
+		arg.Name,
+		arg.PriceCents,
+		arg.StripePriceID,
+		arg.MessagesLimit,
+		arg.ConnectionsLimit,
+		arg.RetentionDays,
+		arg.WebhooksEnabled,
+		arg.VideoCallsEnabled,
+		arg.ModerationEnabled,
+		arg.IsActive,
+		arg.IsHighlighted,
+		arg.SortOrder,
+		arg.Description,
+	)
+	var i Plan
+	err := row.Scan(
+		&i.Slug,
+		&i.Name,
+		&i.PriceCents,
+		&i.StripePriceID,
+		&i.MessagesLimit,
+		&i.ConnectionsLimit,
+		&i.RetentionDays,
+		&i.WebhooksEnabled,
+		&i.VideoCallsEnabled,
+		&i.ModerationEnabled,
+		&i.CreatedAt,
+		&i.IsActive,
+		&i.IsHighlighted,
+		&i.SortOrder,
+		&i.Description,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deletePlan = `-- name: DeletePlan :exec
+DELETE FROM plans
+WHERE slug = $1
+`
+
+func (q *Queries) DeletePlan(ctx context.Context, slug string) error {
+	_, err := q.db.Exec(ctx, deletePlan, slug)
+	return err
+}
+
+const getActivePlan = `-- name: GetActivePlan :one
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+FROM plans
+WHERE slug = $1 AND is_active = true
+`
+
+func (q *Queries) GetActivePlan(ctx context.Context, slug string) (Plan, error) {
+	row := q.db.QueryRow(ctx, getActivePlan, slug)
+	var i Plan
+	err := row.Scan(
+		&i.Slug,
+		&i.Name,
+		&i.PriceCents,
+		&i.StripePriceID,
+		&i.MessagesLimit,
+		&i.ConnectionsLimit,
+		&i.RetentionDays,
+		&i.WebhooksEnabled,
+		&i.VideoCallsEnabled,
+		&i.ModerationEnabled,
+		&i.CreatedAt,
+		&i.IsActive,
+		&i.IsHighlighted,
+		&i.SortOrder,
+		&i.Description,
 		&i.UpdatedAt,
 	)
 	return i, err
@@ -244,8 +374,40 @@ func (q *Queries) GetAppSubscriptionByStripeSubscriptionID(ctx context.Context, 
 	return i, err
 }
 
+const getDefaultPlan = `-- name: GetDefaultPlan :one
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+FROM plans
+WHERE is_active = true
+ORDER BY sort_order ASC, price_cents ASC
+LIMIT 1
+`
+
+func (q *Queries) GetDefaultPlan(ctx context.Context) (Plan, error) {
+	row := q.db.QueryRow(ctx, getDefaultPlan)
+	var i Plan
+	err := row.Scan(
+		&i.Slug,
+		&i.Name,
+		&i.PriceCents,
+		&i.StripePriceID,
+		&i.MessagesLimit,
+		&i.ConnectionsLimit,
+		&i.RetentionDays,
+		&i.WebhooksEnabled,
+		&i.VideoCallsEnabled,
+		&i.ModerationEnabled,
+		&i.CreatedAt,
+		&i.IsActive,
+		&i.IsHighlighted,
+		&i.SortOrder,
+		&i.Description,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getPlan = `-- name: GetPlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
 FROM plans
 WHERE slug = $1
 `
@@ -265,6 +427,11 @@ func (q *Queries) GetPlan(ctx context.Context, slug string) (Plan, error) {
 		&i.VideoCallsEnabled,
 		&i.ModerationEnabled,
 		&i.CreatedAt,
+		&i.IsActive,
+		&i.IsHighlighted,
+		&i.SortOrder,
+		&i.Description,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -313,9 +480,10 @@ func (q *Queries) IncrementAppMessageUsage(ctx context.Context, appID int64) (in
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
 FROM plans
-ORDER BY price_cents ASC
+WHERE is_active = true
+ORDER BY sort_order ASC, price_cents ASC
 `
 
 func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
@@ -339,6 +507,54 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 			&i.VideoCallsEnabled,
 			&i.ModerationEnabled,
 			&i.CreatedAt,
+			&i.IsActive,
+			&i.IsHighlighted,
+			&i.SortOrder,
+			&i.Description,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlansAdmin = `-- name: ListPlansAdmin :many
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+FROM plans
+ORDER BY sort_order ASC, price_cents ASC
+`
+
+func (q *Queries) ListPlansAdmin(ctx context.Context) ([]Plan, error) {
+	rows, err := q.db.Query(ctx, listPlansAdmin)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Plan
+	for rows.Next() {
+		var i Plan
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Name,
+			&i.PriceCents,
+			&i.StripePriceID,
+			&i.MessagesLimit,
+			&i.ConnectionsLimit,
+			&i.RetentionDays,
+			&i.WebhooksEnabled,
+			&i.VideoCallsEnabled,
+			&i.ModerationEnabled,
+			&i.CreatedAt,
+			&i.IsActive,
+			&i.IsHighlighted,
+			&i.SortOrder,
+			&i.Description,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -412,6 +628,83 @@ func (q *Queries) UpdateAppSubscription(ctx context.Context, arg UpdateAppSubscr
 		&i.CurrentPeriodStart,
 		&i.CurrentPeriodEnd,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePlan = `-- name: UpdatePlan :one
+UPDATE plans
+SET
+    name = COALESCE($1, name),
+    price_cents = COALESCE($2, price_cents),
+    stripe_price_id = COALESCE($3, stripe_price_id),
+    messages_limit = COALESCE($4, messages_limit),
+    connections_limit = COALESCE($5, connections_limit),
+    retention_days = COALESCE($6, retention_days),
+    webhooks_enabled = COALESCE($7, webhooks_enabled),
+    video_calls_enabled = COALESCE($8, video_calls_enabled),
+    moderation_enabled = COALESCE($9, moderation_enabled),
+    is_active = COALESCE($10, is_active),
+    is_highlighted = COALESCE($11, is_highlighted),
+    sort_order = COALESCE($12, sort_order),
+    description = COALESCE($13, description),
+    updated_at = NOW()
+WHERE slug = $14
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+`
+
+type UpdatePlanParams struct {
+	Name              pgtype.Text
+	PriceCents        pgtype.Int4
+	StripePriceID     pgtype.Text
+	MessagesLimit     pgtype.Int4
+	ConnectionsLimit  pgtype.Int4
+	RetentionDays     pgtype.Int4
+	WebhooksEnabled   pgtype.Bool
+	VideoCallsEnabled pgtype.Bool
+	ModerationEnabled pgtype.Bool
+	IsActive          pgtype.Bool
+	IsHighlighted     pgtype.Bool
+	SortOrder         pgtype.Int4
+	Description       pgtype.Text
+	Slug              string
+}
+
+func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, error) {
+	row := q.db.QueryRow(ctx, updatePlan,
+		arg.Name,
+		arg.PriceCents,
+		arg.StripePriceID,
+		arg.MessagesLimit,
+		arg.ConnectionsLimit,
+		arg.RetentionDays,
+		arg.WebhooksEnabled,
+		arg.VideoCallsEnabled,
+		arg.ModerationEnabled,
+		arg.IsActive,
+		arg.IsHighlighted,
+		arg.SortOrder,
+		arg.Description,
+		arg.Slug,
+	)
+	var i Plan
+	err := row.Scan(
+		&i.Slug,
+		&i.Name,
+		&i.PriceCents,
+		&i.StripePriceID,
+		&i.MessagesLimit,
+		&i.ConnectionsLimit,
+		&i.RetentionDays,
+		&i.WebhooksEnabled,
+		&i.VideoCallsEnabled,
+		&i.ModerationEnabled,
+		&i.CreatedAt,
+		&i.IsActive,
+		&i.IsHighlighted,
+		&i.SortOrder,
+		&i.Description,
 		&i.UpdatedAt,
 	)
 	return i, err

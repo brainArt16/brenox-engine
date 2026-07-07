@@ -122,9 +122,11 @@ make migrate-test
 make test-up
 
 cp .env.prod.example .env.prod
-make migrate-prod
-make prod-up
+# Edit DB_HOST, REDIS_URL, S3_* — Coolify internal Postgres: DB_SSLMODE=disable
+make prod-up          # migrations run automatically on API container start
 ```
+
+Optional: `make migrate-prod` before `prod-up` if you want migrations applied before the API starts. Set `RUN_MIGRATIONS_ON_START=false` to skip in-container migrate.
 
 See [docs/RUNBOOK.md](docs/RUNBOOK.md) and [docs/SECRETS.md](docs/SECRETS.md).
 
@@ -204,7 +206,8 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/admin/apps/:id` | JWT (support+) | App detail |
 | GET | `/api/admin/apps/:app_id/keys` | JWT (support+) | List API keys for any app |
 | DELETE | `/api/admin/apps/:app_id/keys/:key_id` | JWT (admin) | Emergency cross-tenant API key revoke |
-| GET | `/api/plans` | No | Public plan tiers (Starter/Growth/Scale) |
+| GET | `/api/plans` | No | Active plan tiers (limits + feature flags) |
+| GET/PATCH/DELETE | `/api/admin/plans` | JWT (support+/admin write) | Manage plans, Stripe price IDs, feature toggles |
 | GET | `/api/platform/status` | No | Maintenance mode status |
 | POST | `/webhooks/stripe` | Stripe signature | Subscription lifecycle webhooks |
 | GET | `/api/apps/:app_id/billing` | JWT (owner) | App subscription + usage |

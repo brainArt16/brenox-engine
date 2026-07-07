@@ -501,6 +501,15 @@ messages
 | 15.17 | Maintenance mode middleware + admin platform settings | [x] |
 | 15.18 | Admin billing overview; web billing page + register plan flow | [x] |
 
+### Phase 15C.1 — Dynamic plan control
+
+| # | Task | Status |
+|---|------|--------|
+| 15.19 | Migration: plan `is_active`, `is_highlighted`, `sort_order`, `description` | [x] |
+| 15.20 | Admin CRUD `/api/admin/plans` — limits, features, Stripe price ID | [x] |
+| 15.21 | Checkout uses `plans.stripe_price_id` (remove env price mapping) | [x] |
+| 15.22 | Landing pricing + `/admin/plans` UI driven by API | [x] |
+
 ---
 
 ## Dependency Graph
@@ -596,7 +605,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
-| 2026-07-07 | Phase 15C: billing plans, Stripe checkout, usage metering, feature gates, maintenance mode |
+| 2026-07-07 | Docker API image runs `migrate up` on container start (Coolify/git-push deploys); `DB_SSLMODE` wired in postgres pool |
 | 2026-07-07 | Phase 15B: admin app detail + cross-tenant key revoke, workspace members, audit filters, web detail pages |
 | 2026-07-07 | Health check reports pending migrations; startup logs error when schema is behind (fixes prod audit_logs / register failures) |
 | 2026-07-07 | Phase 15 MVP: platform admin API (`/api/admin/*`), roles, suspend + JWT invalidation, web admin panel |

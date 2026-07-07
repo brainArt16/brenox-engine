@@ -248,6 +248,10 @@ func main() {
 	admin.PATCH("/apps/:app_id/subscription", middleware.RequirePlatformWrite(), billingHandler.AdminUpdateAppSubscription)
 	admin.GET("/platform-settings", billingHandler.AdminGetPlatformSettings)
 	admin.PATCH("/platform-settings", middleware.RequirePlatformWrite(), billingHandler.AdminUpdatePlatformSettings)
+	admin.GET("/plans", billingHandler.AdminListPlans)
+	admin.POST("/plans", middleware.RequirePlatformWrite(), billingHandler.AdminCreatePlan)
+	admin.PATCH("/plans/:slug", middleware.RequirePlatformWrite(), billingHandler.AdminUpdatePlan)
+	admin.DELETE("/plans/:slug", middleware.RequirePlatformWrite(), billingHandler.AdminDeletePlan)
 
 	v1 := router.Group("/v1")
 	v1.Use(middleware.APIKeyMiddleware(appsService))

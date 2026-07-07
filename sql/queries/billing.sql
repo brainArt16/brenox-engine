@@ -1,12 +1,79 @@
 -- name: ListPlans :many
 SELECT *
 FROM plans
-ORDER BY price_cents ASC;
+WHERE is_active = true
+ORDER BY sort_order ASC, price_cents ASC;
+
+-- name: ListPlansAdmin :many
+SELECT *
+FROM plans
+ORDER BY sort_order ASC, price_cents ASC;
 
 -- name: GetPlan :one
 SELECT *
 FROM plans
 WHERE slug = $1;
+
+-- name: GetActivePlan :one
+SELECT *
+FROM plans
+WHERE slug = $1 AND is_active = true;
+
+-- name: GetDefaultPlan :one
+SELECT *
+FROM plans
+WHERE is_active = true
+ORDER BY sort_order ASC, price_cents ASC
+LIMIT 1;
+
+-- name: CreatePlan :one
+INSERT INTO plans (
+    slug,
+    name,
+    price_cents,
+    stripe_price_id,
+    messages_limit,
+    connections_limit,
+    retention_days,
+    webhooks_enabled,
+    video_calls_enabled,
+    moderation_enabled,
+    is_active,
+    is_highlighted,
+    sort_order,
+    description
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+RETURNING *;
+
+-- name: UpdatePlan :one
+UPDATE plans
+SET
+    name = COALESCE(sqlc.narg('name'), name),
+    price_cents = COALESCE(sqlc.narg('price_cents'), price_cents),
+    stripe_price_id = COALESCE(sqlc.narg('stripe_price_id'), stripe_price_id),
+    messages_limit = COALESCE(sqlc.narg('messages_limit'), messages_limit),
+    connections_limit = COALESCE(sqlc.narg('connections_limit'), connections_limit),
+    retention_days = COALESCE(sqlc.narg('retention_days'), retention_days),
+    webhooks_enabled = COALESCE(sqlc.narg('webhooks_enabled'), webhooks_enabled),
+    video_calls_enabled = COALESCE(sqlc.narg('video_calls_enabled'), video_calls_enabled),
+    moderation_enabled = COALESCE(sqlc.narg('moderation_enabled'), moderation_enabled),
+    is_active = COALESCE(sqlc.narg('is_active'), is_active),
+    is_highlighted = COALESCE(sqlc.narg('is_highlighted'), is_highlighted),
+    sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
+    description = COALESCE(sqlc.narg('description'), description),
+    updated_at = NOW()
+WHERE slug = sqlc.arg('slug')
+RETURNING *;
+
+-- name: DeletePlan :exec
+DELETE FROM plans
+WHERE slug = $1;
+
+-- name: CountSubscriptionsForPlan :one
+SELECT COUNT(*)::bigint
+FROM app_subscriptions
+WHERE plan_slug = $1;
 
 -- name: GetAppByWorkspaceID :one
 SELECT *

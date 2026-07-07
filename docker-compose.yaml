@@ -1,5 +1,6 @@
 # Deploy — API only; Postgres, Redis, and S3 are managed externally.
-# Use .env.test or .env.prod for environment-specific values.
+# The API image runs migrations on container start (see scripts/docker-entrypoint.sh).
+# Set RUN_MIGRATIONS_ON_START=false to skip. For Coolify internal Postgres use DB_SSLMODE=disable.
 #
 #   make test-up | make prod-up
 
@@ -13,7 +14,7 @@ services:
       - ./sql/migrations:/migrations
     entrypoint: >
       sh -c 'migrate -path=/migrations
-      -database="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-require}"
+      -database="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=${DB_SSLMODE:-prefer}"
       up'
 
   api:
@@ -30,7 +31,8 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT:-5432}
       DB_NAME: ${DB_NAME}
-      DB_SSLMODE: ${DB_SSLMODE:-require}
+      DB_SSLMODE: ${DB_SSLMODE:-prefer}
+      RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_TTL_HOURS: ${JWT_ACCESS_TTL_HOURS:-24}
       JWT_REFRESH_GRACE_HOURS: ${JWT_REFRESH_GRACE_HOURS:-168}

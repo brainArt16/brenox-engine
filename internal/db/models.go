@@ -168,6 +168,11 @@ type Plan struct {
 	VideoCallsEnabled bool
 	ModerationEnabled bool
 	CreatedAt         pgtype.Timestamptz
+	IsActive          bool
+	IsHighlighted     bool
+	SortOrder         int32
+	Description       string
+	UpdatedAt         pgtype.Timestamptz
 }
 
 type PlatformSetting struct {

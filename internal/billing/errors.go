@@ -12,6 +12,9 @@ var (
 	ErrWebhooksNotAllowed = errors.New("webhooks not included in current plan")
 	ErrVideoNotAllowed    = errors.New("video calls not included in current plan")
 	ErrInvalidRequest     = errors.New("invalid request")
+	ErrPlanInUse          = errors.New("plan has active subscriptions")
+	ErrSlugTaken          = errors.New("plan slug already taken")
+	ErrInvalidSlug        = errors.New("invalid plan slug")
 )
 
 const (

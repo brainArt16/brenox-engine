@@ -176,6 +176,53 @@ func (h *Handler) AdminUpdatePlatformSettings(c *gin.Context) {
 	c.JSON(http.StatusOK, settings)
 }
 
+func (h *Handler) AdminListPlans(c *gin.Context) {
+	plans, err := h.service.AdminListPlans(c.Request.Context())
+	if err != nil {
+		httperr.WriteInternal(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"plans": plans})
+}
+
+func (h *Handler) AdminCreatePlan(c *gin.Context) {
+	var req CreatePlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httperr.WriteJSON(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	plan, err := h.service.AdminCreatePlan(c.Request.Context(), req)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, plan)
+}
+
+func (h *Handler) AdminUpdatePlan(c *gin.Context) {
+	slug := c.Param("slug")
+	var req UpdatePlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httperr.WriteJSON(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	plan, err := h.service.AdminUpdatePlan(c.Request.Context(), slug, req)
+	if err != nil {
+		writeError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, plan)
+}
+
+func (h *Handler) AdminDeletePlan(c *gin.Context) {
+	slug := c.Param("slug")
+	if err := h.service.AdminDeletePlan(c.Request.Context(), slug); err != nil {
+		writeError(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func pagination(c *gin.Context) (int32, int32) {
 	limit := int32(50)
 	offset := int32(0)
@@ -207,8 +254,12 @@ func writeError(c *gin.Context, err error) {
 		httperr.WriteJSON(c, http.StatusNotFound, httperr.ClientMessage(err, ErrNotFound))
 	case errors.Is(err, ErrForbidden):
 		httperr.WriteJSON(c, http.StatusForbidden, httperr.ClientMessage(err, ErrForbidden))
-	case errors.Is(err, ErrInvalidPlan), errors.Is(err, ErrInvalidRequest):
-		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrInvalidPlan, ErrInvalidRequest))
+	case errors.Is(err, ErrInvalidPlan), errors.Is(err, ErrInvalidRequest), errors.Is(err, ErrInvalidSlug):
+		httperr.WriteJSON(c, http.StatusBadRequest, httperr.ClientMessage(err, ErrInvalidPlan, ErrInvalidRequest, ErrInvalidSlug))
+	case errors.Is(err, ErrSlugTaken):
+		httperr.WriteJSON(c, http.StatusConflict, httperr.ClientMessage(err, ErrSlugTaken))
+	case errors.Is(err, ErrPlanInUse):
+		httperr.WriteJSON(c, http.StatusConflict, httperr.ClientMessage(err, ErrPlanInUse))
 	case errors.Is(err, ErrStripeNotConfigured):
 		httperr.WriteJSON(c, http.StatusServiceUnavailable, httperr.ClientMessage(err, ErrStripeNotConfigured))
 	case errors.Is(err, ErrMessageLimit):
