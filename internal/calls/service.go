@@ -64,8 +64,14 @@ func (s *Service) InitiateCall(
 		}
 	}
 
-	if _, err := s.queries.GetActiveCallByChannel(ctx, channelID); err == nil {
-		return CallResponse{}, ErrCallAlreadyActive
+	if existing, err := s.queries.GetActiveCallByChannel(ctx, channelID); err == nil {
+		cleared, err := s.clearStaleSoloCall(ctx, existing, userID)
+		if err != nil {
+			return CallResponse{}, err
+		}
+		if !cleared {
+			return CallResponse{}, ErrCallAlreadyActive
+		}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return CallResponse{}, err
 	}
@@ -190,7 +196,23 @@ func (s *Service) LeaveCall(ctx context.Context, callID, userID int64) (CallResp
 		return CallResponse{}, err
 	}
 
-	if count == 0 {
+	if count <= 1 {
+		if count == 1 {
+			remaining, err := s.queries.ListActiveCallParticipants(ctx, callID)
+			if err != nil {
+				return CallResponse{}, err
+			}
+			for _, participant := range remaining {
+				if _, err := s.queries.MarkCallParticipantLeft(ctx, db.MarkCallParticipantLeftParams{
+					CallID: callID,
+					UserID: participant.UserID,
+				}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return CallResponse{}, err
+				}
+				s.publish(ctx, "call.leave", call, participant.UserID)
+			}
+		}
+
 		call, err = s.queries.UpdateCallStatus(ctx, db.UpdateCallStatusParams{
 			ID:     callID,
 			Status: StatusEnded,
@@ -202,6 +224,34 @@ func (s *Service) LeaveCall(ctx context.Context, callID, userID int64) (CallResp
 	}
 
 	return toCallResponse(call), nil
+}
+
+func (s *Service) clearStaleSoloCall(ctx context.Context, call db.Call, userID int64) (bool, error) {
+	participants, err := s.queries.ListActiveCallParticipants(ctx, call.ID)
+	if err != nil {
+		return false, err
+	}
+	if len(participants) != 1 || participants[0].UserID != userID {
+		return false, nil
+	}
+
+	if _, err := s.queries.MarkCallParticipantLeft(ctx, db.MarkCallParticipantLeftParams{
+		CallID: call.ID,
+		UserID: userID,
+	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, err
+	}
+
+	ended, err := s.queries.UpdateCallStatus(ctx, db.UpdateCallStatusParams{
+		ID:     call.ID,
+		Status: StatusEnded,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	s.publish(ctx, "call.end", ended, userID)
+	return true, nil
 }
 
 func (s *Service) ValidateSignal(ctx context.Context, callID, userID int64) (SignalContext, error) {

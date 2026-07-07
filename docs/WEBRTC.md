@@ -10,7 +10,7 @@ SDK integration guide: [WEBRTC_CLIENT.md](WEBRTC_CLIENT.md).
 2. **Join** — `POST /api/calls/:id/join` (channel members only)
 3. **Signaling** — WebSocket events on the channel connection
 4. **Leave** — `POST /api/calls/:id/leave`
-5. **End** — automatic when last participant leaves; broadcasts `call.end`
+5. **End** — automatic when one or fewer participants remain after a leave (including 1:1 calls when either party hangs up); broadcasts `call.end`. Stale solo-participant calls are cleared when the same user initiates again.
 
 ## Call modes
 

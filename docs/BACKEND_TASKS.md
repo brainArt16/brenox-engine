@@ -605,6 +605,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-07-07 | Fix stuck channel calls: end call when ≤1 participant remains after leave; clear stale solo-participant calls on re-initiate |
 | 2026-07-07 | Per-app browser origin allowlisting (`allowed_origins`, `PATCH /api/apps/:id/origins`, embed JWT `app_id`) |
 | 2026-07-07 | Docker API image runs `migrate up` on container start (Coolify/git-push deploys); `DB_SSLMODE` wired in postgres pool |
 | 2026-07-07 | Phase 15B: admin app detail + cross-tenant key revoke, workspace members, audit filters, web detail pages |
