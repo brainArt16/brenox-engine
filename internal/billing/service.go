@@ -110,79 +110,109 @@ func (s *Service) IsMaintenanceMode(ctx context.Context) (bool, string, error) {
 	return status.MaintenanceMode, status.MaintenanceMessage, nil
 }
 
-func (s *Service) OnAppCreated(ctx context.Context, appID int64, planSlug string) error {
-	planSlug = strings.TrimSpace(planSlug)
-	var plan db.Plan
-	var err error
-
-	if planSlug != "" {
-		plan, err = s.queries.GetActivePlan(ctx, planSlug)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrInvalidPlan
-			}
-			return err
-		}
-	} else {
-		plan, err = s.queries.GetDefaultPlan(ctx)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrInvalidPlan
-			}
-			return err
-		}
+// EnsureUserSubscription creates a free Starter subscription when missing.
+func (s *Service) EnsureUserSubscription(ctx context.Context, userID int64) error {
+	_, err := s.queries.GetUserSubscription(ctx, userID)
+	if err == nil {
+		return nil
 	}
-
-	_, err = s.queries.CreateAppSubscription(ctx, db.CreateAppSubscriptionParams{
-		AppID:    appID,
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	plan, err := s.queries.GetDefaultPlan(ctx)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrInvalidPlan
+		}
+		return err
+	}
+	_, err = s.queries.CreateUserSubscription(ctx, db.CreateUserSubscriptionParams{
+		UserID:   userID,
 		PlanSlug: plan.Slug,
-		Status:   StatusIncomplete,
+		Status:   StatusActive,
 	})
 	return err
 }
 
-func (s *Service) GetAppBilling(ctx context.Context, appID int64) (AppBillingResponse, error) {
-	sub, err := s.queries.GetAppSubscription(ctx, appID)
+func (s *Service) OnUserRegistered(ctx context.Context, userID int64) error {
+	return s.EnsureUserSubscription(ctx, userID)
+}
+
+func (s *Service) AssertCanCreateApp(ctx context.Context, userID int64) error {
+	if err := s.EnsureUserSubscription(ctx, userID); err != nil {
+		return err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return AppBillingResponse{}, ErrNotFound
-		}
-		return AppBillingResponse{}, err
+		return err
+	}
+	if !statusAllowsUsage(sub.Status) {
+		return ErrSubscriptionInactive
+	}
+	if sub.MaxApps < 0 {
+		return nil
+	}
+	count, err := s.queries.CountAppsByOwner(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if count >= int64(sub.MaxApps) {
+		return ErrAppLimit
+	}
+	return nil
+}
+
+func (s *Service) GetAccountBilling(ctx context.Context, userID int64) (AccountBillingResponse, error) {
+	if err := s.EnsureUserSubscription(ctx, userID); err != nil {
+		return AccountBillingResponse{}, err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, userID)
+	if err != nil {
+		return AccountBillingResponse{}, err
 	}
 
-	usageCount, err := s.queries.GetAppMessageUsage(ctx, appID)
+	messages, err := s.queries.SumOwnerMessageUsage(ctx, userID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return AppBillingResponse{}, err
-	}
-	messages := int64(0)
-	if err == nil {
-		messages = usageCount
+		return AccountBillingResponse{}, err
 	}
 
-	return AppBillingResponse{
-		AppID:        appID,
+	appsCount, err := s.queries.CountAppsByOwner(ctx, userID)
+	if err != nil {
+		return AccountBillingResponse{}, err
+	}
+
+	breakdownRows, err := s.queries.ListOwnerAppMessageUsage(ctx, userID)
+	if err != nil {
+		return AccountBillingResponse{}, err
+	}
+	breakdown := make([]AppUsageBreakdown, 0, len(breakdownRows))
+	for _, row := range breakdownRows {
+		breakdown = append(breakdown, AppUsageBreakdown{
+			AppID:             row.AppID,
+			AppName:           row.AppName,
+			AppSlug:           row.AppSlug,
+			MessagesThisMonth: row.MessagesThisMonth,
+		})
+	}
+
+	return AccountBillingResponse{
 		Subscription: toSubscriptionResponse(sub),
 		Usage: UsageResponse{
 			MessagesThisMonth: messages,
 			MessagesLimit:     sub.MessagesLimit,
 		},
+		AppsCount: appsCount,
+		AppsLimit: sub.MaxApps,
+		AppUsage:  breakdown,
 	}, nil
 }
 
-func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userEmail string, appID int64, planSlug string) (CheckoutResponse, error) {
+func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userEmail string, planSlug string) (CheckoutResponse, error) {
 	if !s.config.Enabled() {
 		return CheckoutResponse{}, ErrStripeNotConfigured
 	}
-
-	app, err := s.queries.GetAppByID(ctx, appID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return CheckoutResponse{}, ErrNotFound
-		}
+	if err := s.EnsureUserSubscription(ctx, userID); err != nil {
 		return CheckoutResponse{}, err
-	}
-	if app.OwnerID != userID {
-		return CheckoutResponse{}, ErrForbidden
 	}
 
 	planSlug = strings.TrimSpace(planSlug)
@@ -196,6 +226,9 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userE
 		}
 		return CheckoutResponse{}, err
 	}
+	if plan.PriceCents == 0 {
+		return CheckoutResponse{}, ErrInvalidPlan
+	}
 
 	if !plan.StripePriceID.Valid || strings.TrimSpace(plan.StripePriceID.String) == "" {
 		return CheckoutResponse{}, ErrPlanStripePriceMissing
@@ -207,12 +240,8 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userE
 		return CheckoutResponse{}, err
 	}
 
-	successURL := fmt.Sprintf(
-		"%s/apps/%d/billing?session_id={CHECKOUT_SESSION_ID}",
-		s.config.CheckoutBaseURL,
-		appID,
-	)
-	cancelURL := fmt.Sprintf("%s/apps/%d/billing", s.config.CheckoutBaseURL, appID)
+	successURL := fmt.Sprintf("%s/settings/billing?session_id={CHECKOUT_SESSION_ID}", s.config.CheckoutBaseURL)
+	cancelURL := fmt.Sprintf("%s/settings/billing", s.config.CheckoutBaseURL)
 
 	params := &stripe.CheckoutSessionParams{
 		Customer: stripe.String(customerID),
@@ -223,13 +252,12 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userE
 		SuccessURL: stripe.String(successURL),
 		CancelURL:  stripe.String(cancelURL),
 		Metadata: map[string]string{
-			"app_id":    strconv.FormatInt(appID, 10),
-			"plan_slug": planSlug,
 			"user_id":   strconv.FormatInt(userID, 10),
+			"plan_slug": planSlug,
 		},
 		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
 			Metadata: map[string]string{
-				"app_id":    strconv.FormatInt(appID, 10),
+				"user_id":   strconv.FormatInt(userID, 10),
 				"plan_slug": planSlug,
 			},
 		},
@@ -240,10 +268,10 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID int64, userE
 		return CheckoutResponse{}, err
 	}
 
-	_, _ = s.queries.UpdateAppSubscription(ctx, db.UpdateAppSubscriptionParams{
+	_, _ = s.queries.UpdateUserSubscription(ctx, db.UpdateUserSubscriptionParams{
+		UserID:           userID,
 		PlanSlug:         pgtype.Text{String: planSlug, Valid: true},
 		StripeCustomerID: pgtype.Text{String: customerID, Valid: true},
-		AppID:            appID,
 	})
 
 	return CheckoutResponse{URL: sess.URL}, nil
@@ -260,39 +288,15 @@ func (s *Service) UserEmail(ctx context.Context, userID int64) (string, error) {
 	return user.Email, nil
 }
 
-func (s *Service) AssertAppOwner(ctx context.Context, appID, userID int64) error {
-	app, err := s.queries.GetAppByID(ctx, appID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		return err
-	}
-	if app.OwnerID != userID {
-		return ErrForbidden
-	}
-	return nil
-}
-
 func (s *Service) CheckMessageQuota(ctx context.Context, appID int64) error {
-	sub, err := s.queries.GetAppSubscription(ctx, appID)
+	app, err := s.queries.GetAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		return err
 	}
-	if !statusAllowsUsage(sub.Status) {
-		return ErrSubscriptionInactive
-	}
-	count, err := s.queries.GetAppMessageUsage(ctx, appID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return err
-	}
-	if int64(sub.MessagesLimit) > 0 && count >= int64(sub.MessagesLimit) {
-		return ErrMessageLimit
-	}
-	return nil
+	return s.checkOwnerMessageQuota(ctx, app.OwnerID)
 }
 
 func (s *Service) CheckMessageQuotaByWorkspace(ctx context.Context, workspaceID int64) error {
@@ -306,7 +310,28 @@ func (s *Service) CheckMessageQuotaByWorkspace(ctx context.Context, workspaceID 
 	if workspaceID == app.SandboxWorkspaceID {
 		return nil
 	}
-	return s.CheckMessageQuota(ctx, app.ID)
+	return s.checkOwnerMessageQuota(ctx, app.OwnerID)
+}
+
+func (s *Service) checkOwnerMessageQuota(ctx context.Context, ownerID int64) error {
+	if err := s.EnsureUserSubscription(ctx, ownerID); err != nil {
+		return err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, ownerID)
+	if err != nil {
+		return err
+	}
+	if !statusAllowsUsage(sub.Status) {
+		return ErrSubscriptionInactive
+	}
+	count, err := s.queries.SumOwnerMessageUsage(ctx, ownerID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if int64(sub.MessagesLimit) > 0 && count >= int64(sub.MessagesLimit) {
+		return ErrMessageLimit
+	}
+	return nil
 }
 
 func (s *Service) RecordMessageByAppID(ctx context.Context, appID int64) error {
@@ -329,12 +354,19 @@ func (s *Service) RecordMessageByWorkspaceID(ctx context.Context, workspaceID in
 }
 
 func (s *Service) CheckCanCreateWebhook(ctx context.Context, appID int64) error {
-	sub, err := s.queries.GetAppSubscription(ctx, appID)
+	app, err := s.queries.GetAppByID(ctx, appID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrWebhooksNotAllowed
 		}
 		return err
+	}
+	if err := s.EnsureUserSubscription(ctx, app.OwnerID); err != nil {
+		return err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, app.OwnerID)
+	if err != nil {
+		return ErrWebhooksNotAllowed
 	}
 	if !statusAllowsUsage(sub.Status) {
 		return ErrSubscriptionInactive
@@ -353,12 +385,12 @@ func (s *Service) CheckCanStartVideoCall(ctx context.Context, workspaceID int64)
 		}
 		return err
 	}
-	sub, err := s.queries.GetAppSubscription(ctx, app.ID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrVideoNotAllowed
-		}
+	if err := s.EnsureUserSubscription(ctx, app.OwnerID); err != nil {
 		return err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, app.OwnerID)
+	if err != nil {
+		return ErrVideoNotAllowed
 	}
 	if !statusAllowsUsage(sub.Status) {
 		return ErrSubscriptionInactive
@@ -378,7 +410,7 @@ func (s *Service) AdminGetOverview(ctx context.Context) (AdminBillingOverview, e
 }
 
 func (s *Service) AdminListSubscriptions(ctx context.Context, limit, offset int32) ([]AdminSubscriptionListItem, error) {
-	rows, err := s.queries.AdminListAppSubscriptions(ctx, db.AdminListAppSubscriptionsParams{
+	rows, err := s.queries.AdminListUserSubscriptions(ctx, db.AdminListUserSubscriptionsParams{
 		Limit:  limit,
 		Offset: offset,
 	})
@@ -388,12 +420,14 @@ func (s *Service) AdminListSubscriptions(ctx context.Context, limit, offset int3
 	items := make([]AdminSubscriptionListItem, 0, len(rows))
 	for _, row := range rows {
 		item := AdminSubscriptionListItem{
-			AppID:             row.AppID,
-			AppName:           row.AppName,
-			AppSlug:           row.AppSlug,
+			UserID:            row.UserID,
+			UserEmail:         row.UserEmail,
+			UserUsername:      row.UserUsername,
 			PlanSlug:          row.PlanSlug,
 			PlanName:          row.PlanName,
 			Status:            row.Status,
+			MaxApps:           row.MaxApps,
+			AppsCount:         row.AppsCount,
 			MessagesThisMonth: row.MessagesThisMonth,
 		}
 		if row.CurrentPeriodEnd.Valid {
@@ -404,34 +438,31 @@ func (s *Service) AdminListSubscriptions(ctx context.Context, limit, offset int3
 	return items, nil
 }
 
-func (s *Service) AdminUpdateSubscription(ctx context.Context, appID int64, req AdminUpdateSubscriptionRequest) (AppBillingResponse, error) {
+func (s *Service) AdminUpdateSubscription(ctx context.Context, userID int64, req AdminUpdateSubscriptionRequest) (AccountBillingResponse, error) {
 	if req.PlanSlug == nil && req.Status == nil {
-		return AppBillingResponse{}, ErrInvalidRequest
+		return AccountBillingResponse{}, ErrInvalidRequest
 	}
-	if _, err := s.queries.GetAppSubscription(ctx, appID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return AppBillingResponse{}, ErrNotFound
-		}
-		return AppBillingResponse{}, err
+	if err := s.EnsureUserSubscription(ctx, userID); err != nil {
+		return AccountBillingResponse{}, err
 	}
-	params := db.UpdateAppSubscriptionParams{AppID: appID}
+	params := db.UpdateUserSubscriptionParams{UserID: userID}
 	if req.PlanSlug != nil {
 		slug := strings.TrimSpace(*req.PlanSlug)
 		if _, err := s.queries.GetPlan(ctx, slug); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return AppBillingResponse{}, ErrInvalidPlan
+				return AccountBillingResponse{}, ErrInvalidPlan
 			}
-			return AppBillingResponse{}, err
+			return AccountBillingResponse{}, err
 		}
 		params.PlanSlug = pgtype.Text{String: slug, Valid: true}
 	}
 	if req.Status != nil {
 		params.Status = pgtype.Text{String: strings.TrimSpace(*req.Status), Valid: true}
 	}
-	if _, err := s.queries.UpdateAppSubscription(ctx, params); err != nil {
-		return AppBillingResponse{}, err
+	if _, err := s.queries.UpdateUserSubscription(ctx, params); err != nil {
+		return AccountBillingResponse{}, err
 	}
-	return s.GetAppBilling(ctx, appID)
+	return s.GetAccountBilling(ctx, userID)
 }
 
 func (s *Service) HandleStripeWebhook(ctx context.Context, payload []byte, signature string) error {
@@ -462,14 +493,18 @@ func (s *Service) handleCheckoutCompleted(ctx context.Context, event stripe.Even
 	if err := json.Unmarshal(event.Data.Raw, &raw); err != nil {
 		return err
 	}
-	appID, err := parseMetadataInt64(raw.Metadata, "app_id")
+	userID, err := parseMetadataInt64(raw.Metadata, "user_id")
 	if err != nil {
 		return err
 	}
 	planSlug := raw.Metadata["plan_slug"]
 
-	params := db.UpdateAppSubscriptionParams{
-		AppID:  appID,
+	if err := s.EnsureUserSubscription(ctx, userID); err != nil {
+		return err
+	}
+
+	params := db.UpdateUserSubscriptionParams{
+		UserID: userID,
 		Status: pgtype.Text{String: StatusActive, Valid: true},
 	}
 	if planSlug != "" {
@@ -481,7 +516,7 @@ func (s *Service) handleCheckoutCompleted(ctx context.Context, event stripe.Even
 	if raw.Subscription != "" {
 		params.StripeSubscriptionID = pgtype.Text{String: raw.Subscription, Valid: true}
 	}
-	_, err = s.queries.UpdateAppSubscription(ctx, params)
+	_, err = s.queries.UpdateUserSubscription(ctx, params)
 	return err
 }
 
@@ -495,10 +530,10 @@ func (s *Service) handleSubscriptionChanged(ctx context.Context, event stripe.Ev
 	}
 
 	stripeSubID := pgtype.Text{String: sub.ID, Valid: true}
-	existing, err := s.queries.GetAppSubscriptionByStripeSubscriptionID(ctx, stripeSubID)
+	existing, err := s.queries.GetUserSubscriptionByStripeSubscriptionID(ctx, stripeSubID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			appID, parseErr := parseMetadataInt64(sub.Metadata, "app_id")
+			userID, parseErr := parseMetadataInt64(sub.Metadata, "user_id")
 			if parseErr != nil {
 				return nil
 			}
@@ -510,21 +545,18 @@ func (s *Service) handleSubscriptionChanged(ctx context.Context, event stripe.Ev
 				}
 				planSlug = defaultPlan.Slug
 			}
-			_, createErr := s.queries.CreateAppSubscription(ctx, db.CreateAppSubscriptionParams{
-				AppID:    appID,
-				PlanSlug: planSlug,
-				Status:   mapStripeStatus(string(sub.Status)),
+			if ensureErr := s.EnsureUserSubscription(ctx, userID); ensureErr != nil {
+				return ensureErr
+			}
+			_, updateErr := s.queries.UpdateUserSubscription(ctx, db.UpdateUserSubscriptionParams{
+				UserID:               userID,
+				PlanSlug:             pgtype.Text{String: planSlug, Valid: true},
+				Status:               pgtype.Text{String: mapStripeStatus(string(sub.Status)), Valid: true},
+				StripeSubscriptionID: stripeSubID,
 			})
-			if createErr != nil {
-				return createErr
-			}
-			existing, err = s.queries.GetAppSubscriptionByStripeSubscriptionID(ctx, stripeSubID)
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
+			return updateErr
 		}
+		return err
 	}
 
 	status := mapStripeStatus(string(sub.Status))
@@ -532,14 +564,14 @@ func (s *Service) handleSubscriptionChanged(ctx context.Context, event stripe.Ev
 		status = StatusCanceled
 	}
 
-	params := db.UpdateAppSubscriptionParams{
-		AppID:  existing.AppID,
+	params := db.UpdateUserSubscriptionParams{
+		UserID: existing.UserID,
 		Status: pgtype.Text{String: status, Valid: true},
 	}
 	if planSlug := sub.Metadata["plan_slug"]; planSlug != "" {
 		params.PlanSlug = pgtype.Text{String: planSlug, Valid: true}
 	}
-	_, err = s.queries.UpdateAppSubscription(ctx, params)
+	_, err = s.queries.UpdateUserSubscription(ctx, params)
 	return err
 }
 
@@ -611,16 +643,24 @@ func toPlanResponse(p db.Plan) PlanResponse {
 		Name:              p.Name,
 		Description:       p.Description,
 		PriceCents:        p.PriceCents,
-		PriceDisplay:      fmt.Sprintf("$%.0f", float64(p.PriceCents)/100),
+		PriceDisplay:      formatPriceDisplay(p.PriceCents),
 		MessagesLimit:     p.MessagesLimit,
 		ConnectionsLimit:  p.ConnectionsLimit,
 		RetentionDays:     p.RetentionDays,
+		MaxApps:           p.MaxApps,
 		WebhooksEnabled:   p.WebhooksEnabled,
 		VideoCallsEnabled: p.VideoCallsEnabled,
 		ModerationEnabled: p.ModerationEnabled,
 		IsHighlighted:     p.IsHighlighted,
 		SortOrder:         p.SortOrder,
 	}
+}
+
+func formatPriceDisplay(cents int32) string {
+	if cents == 0 {
+		return "Free"
+	}
+	return fmt.Sprintf("$%.0f", float64(cents)/100)
 }
 
 func toAdminPlanResponse(p db.Plan, subscriptionCount int64) AdminPlanResponse {
@@ -668,8 +708,12 @@ func (s *Service) AdminCreatePlan(ctx context.Context, req CreatePlanRequest) (A
 	if name == "" {
 		return AdminPlanResponse{}, ErrInvalidRequest
 	}
-	if req.PriceCents < 0 || req.MessagesLimit < 0 || req.ConnectionsLimit < 0 || req.RetentionDays < 0 {
+	if req.PriceCents < 0 || req.MessagesLimit < 0 || req.ConnectionsLimit < 0 || req.RetentionDays < 0 || req.MaxApps < -1 {
 		return AdminPlanResponse{}, ErrInvalidRequest
+	}
+	maxApps := req.MaxApps
+	if maxApps == 0 {
+		maxApps = 1
 	}
 
 	if _, err := s.queries.GetPlan(ctx, slug); err == nil {
@@ -692,6 +736,7 @@ func (s *Service) AdminCreatePlan(ctx context.Context, req CreatePlanRequest) (A
 		IsHighlighted:     req.IsHighlighted,
 		SortOrder:         req.SortOrder,
 		Description:       strings.TrimSpace(req.Description),
+		MaxApps:           maxApps,
 	}
 	if stripeID := strings.TrimSpace(req.StripePriceID); stripeID != "" {
 		params.StripePriceID = pgtype.Text{String: stripeID, Valid: true}
@@ -722,9 +767,9 @@ func (s *Service) AdminUpdatePlan(ctx context.Context, slug string, req UpdatePl
 	}
 	if req.Name == nil && req.Description == nil && req.PriceCents == nil &&
 		req.StripePriceID == nil && req.MessagesLimit == nil && req.ConnectionsLimit == nil &&
-		req.RetentionDays == nil && req.WebhooksEnabled == nil && req.VideoCallsEnabled == nil &&
-		req.ModerationEnabled == nil && req.IsActive == nil && req.IsHighlighted == nil &&
-		req.SortOrder == nil {
+		req.RetentionDays == nil && req.MaxApps == nil && req.WebhooksEnabled == nil &&
+		req.VideoCallsEnabled == nil && req.ModerationEnabled == nil && req.IsActive == nil &&
+		req.IsHighlighted == nil && req.SortOrder == nil {
 		return AdminPlanResponse{}, ErrInvalidRequest
 	}
 
@@ -756,6 +801,12 @@ func (s *Service) AdminUpdatePlan(ctx context.Context, slug string, req UpdatePl
 	}
 	if req.RetentionDays != nil {
 		params.RetentionDays = pgtype.Int4{Int32: *req.RetentionDays, Valid: true}
+	}
+	if req.MaxApps != nil {
+		if *req.MaxApps < -1 {
+			return AdminPlanResponse{}, ErrInvalidRequest
+		}
+		params.MaxApps = pgtype.Int4{Int32: *req.MaxApps, Valid: true}
 	}
 	if req.WebhooksEnabled != nil {
 		params.WebhooksEnabled = pgtype.Bool{Bool: *req.WebhooksEnabled, Valid: true}
@@ -838,7 +889,7 @@ func (s *Service) clearOtherHighlights(ctx context.Context, keepSlug string) err
 	return nil
 }
 
-func toSubscriptionResponse(sub db.GetAppSubscriptionRow) SubscriptionResponse {
+func toSubscriptionResponse(sub db.GetUserSubscriptionRow) SubscriptionResponse {
 	resp := SubscriptionResponse{
 		PlanSlug:          sub.PlanSlug,
 		PlanName:          sub.PlanName,
@@ -847,10 +898,11 @@ func toSubscriptionResponse(sub db.GetAppSubscriptionRow) SubscriptionResponse {
 		MessagesLimit:     sub.MessagesLimit,
 		ConnectionsLimit:  sub.ConnectionsLimit,
 		RetentionDays:     sub.RetentionDays,
+		MaxApps:           sub.MaxApps,
 		WebhooksEnabled:   sub.WebhooksEnabled,
 		VideoCallsEnabled: sub.VideoCallsEnabled,
 		ModerationEnabled: sub.ModerationEnabled,
-		NeedsPayment:      sub.Status == StatusIncomplete || sub.Status == StatusPastDue,
+		NeedsPayment:      sub.Status == StatusPastDue,
 	}
 	if sub.CurrentPeriodEnd.Valid {
 		resp.CurrentPeriodEnd = formatTime(sub.CurrentPeriodEnd)

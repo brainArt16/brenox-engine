@@ -35,18 +35,9 @@ func (h *Handler) GetPlatformStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, status)
 }
 
-func (h *Handler) GetAppBilling(c *gin.Context) {
-	appID, ok := parseID(c, "app_id")
-	if !ok {
-		return
-	}
+func (h *Handler) GetAccountBilling(c *gin.Context) {
 	userID := c.MustGet("user_id").(int64)
-	if err := h.service.AssertAppOwner(c.Request.Context(), appID, userID); err != nil {
-		writeError(c, err)
-		return
-	}
-
-	billing, err := h.service.GetAppBilling(c.Request.Context(), appID)
+	billing, err := h.service.GetAccountBilling(c.Request.Context(), userID)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -55,15 +46,7 @@ func (h *Handler) GetAppBilling(c *gin.Context) {
 }
 
 func (h *Handler) CreateCheckout(c *gin.Context) {
-	appID, ok := parseID(c, "app_id")
-	if !ok {
-		return
-	}
 	userID := c.MustGet("user_id").(int64)
-	if err := h.service.AssertAppOwner(c.Request.Context(), appID, userID); err != nil {
-		writeError(c, err)
-		return
-	}
 
 	var req CheckoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -77,7 +60,7 @@ func (h *Handler) CreateCheckout(c *gin.Context) {
 		return
 	}
 
-	checkout, err := h.service.CreateCheckoutSession(c.Request.Context(), userID, email, appID, req.PlanSlug)
+	checkout, err := h.service.CreateCheckoutSession(c.Request.Context(), userID, email, req.PlanSlug)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -122,12 +105,12 @@ func (h *Handler) AdminListSubscriptions(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"subscriptions": items})
 }
 
-func (h *Handler) AdminGetAppBilling(c *gin.Context) {
-	appID, ok := parseID(c, "app_id")
+func (h *Handler) AdminGetUserBilling(c *gin.Context) {
+	userID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
-	billing, err := h.service.GetAppBilling(c.Request.Context(), appID)
+	billing, err := h.service.GetAccountBilling(c.Request.Context(), userID)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -135,8 +118,8 @@ func (h *Handler) AdminGetAppBilling(c *gin.Context) {
 	c.JSON(http.StatusOK, billing)
 }
 
-func (h *Handler) AdminUpdateAppSubscription(c *gin.Context) {
-	appID, ok := parseID(c, "app_id")
+func (h *Handler) AdminUpdateUserSubscription(c *gin.Context) {
+	userID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
@@ -145,7 +128,7 @@ func (h *Handler) AdminUpdateAppSubscription(c *gin.Context) {
 		httperr.WriteJSON(c, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	billing, err := h.service.AdminUpdateSubscription(c.Request.Context(), appID, req)
+	billing, err := h.service.AdminUpdateSubscription(c.Request.Context(), userID, req)
 	if err != nil {
 		writeError(c, err)
 		return
@@ -264,8 +247,8 @@ func writeError(c *gin.Context, err error) {
 		httperr.WriteJSON(c, http.StatusServiceUnavailable, httperr.ClientMessage(err, ErrStripeNotConfigured))
 	case errors.Is(err, ErrPlanStripePriceMissing):
 		httperr.WriteJSON(c, http.StatusServiceUnavailable, httperr.ClientMessage(err, ErrPlanStripePriceMissing))
-	case errors.Is(err, ErrMessageLimit):
-		httperr.WriteJSON(c, http.StatusPaymentRequired, httperr.ClientMessage(err, ErrMessageLimit))
+	case errors.Is(err, ErrMessageLimit), errors.Is(err, ErrAppLimit):
+		httperr.WriteJSON(c, http.StatusPaymentRequired, httperr.ClientMessage(err, ErrMessageLimit, ErrAppLimit))
 	case errors.Is(err, ErrSubscriptionInactive):
 		httperr.WriteJSON(c, http.StatusPaymentRequired, httperr.ClientMessage(err, ErrSubscriptionInactive))
 	case errors.Is(err, ErrWebhooksNotAllowed), errors.Is(err, ErrVideoNotAllowed):

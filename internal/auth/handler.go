@@ -15,9 +15,14 @@ type AdminBootstrapper interface {
 	SyncBootstrapAdmin(ctx context.Context, email string) error
 }
 
+type BillingProvisioner interface {
+	OnUserRegistered(ctx context.Context, userID int64) error
+}
+
 type Handler struct {
 	service   *Service
 	bootstrap AdminBootstrapper
+	billing   BillingProvisioner
 }
 
 func NewHandler(service *Service) *Handler {
@@ -26,6 +31,10 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) SetAdminBootstrap(bootstrap AdminBootstrapper) {
 	h.bootstrap = bootstrap
+}
+
+func (h *Handler) SetBillingProvisioner(billing BillingProvisioner) {
+	h.billing = billing
 }
 
 func (h *Handler) syncAdmin(ctx context.Context, email string) {
@@ -69,6 +78,9 @@ func (h *Handler) Register(
 	}
 
 	h.syncAdmin(c.Request.Context(), user.Email)
+	if h.billing != nil {
+		_ = h.billing.OnUserRegistered(c.Request.Context(), user.ID)
+	}
 
 	c.JSON(
 		http.StatusCreated,

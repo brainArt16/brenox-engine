@@ -41,9 +41,10 @@ INSERT INTO plans (
     is_active,
     is_highlighted,
     sort_order,
-    description
+    description,
+    max_apps
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 RETURNING *;
 
 -- name: UpdatePlan :one
@@ -62,6 +63,7 @@ SET
     is_highlighted = COALESCE(sqlc.narg('is_highlighted'), is_highlighted),
     sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
     description = COALESCE(sqlc.narg('description'), description),
+    max_apps = COALESCE(sqlc.narg('max_apps'), max_apps),
     updated_at = NOW()
 WHERE slug = sqlc.arg('slug')
 RETURNING *;
@@ -72,7 +74,7 @@ WHERE slug = $1;
 
 -- name: CountSubscriptionsForPlan :one
 SELECT COUNT(*)::bigint
-FROM app_subscriptions
+FROM user_subscriptions
 WHERE plan_slug = $1;
 
 -- name: GetAppByWorkspaceID :one
@@ -81,16 +83,21 @@ FROM apps
 WHERE workspace_id = $1
    OR sandbox_workspace_id = $1;
 
--- name: CreateAppSubscription :one
-INSERT INTO app_subscriptions (
-    app_id,
+-- name: CountAppsByOwner :one
+SELECT COUNT(*)::bigint
+FROM apps
+WHERE owner_id = $1;
+
+-- name: CreateUserSubscription :one
+INSERT INTO user_subscriptions (
+    user_id,
     plan_slug,
     status
 )
 VALUES ($1, $2, $3)
 RETURNING *;
 
--- name: GetAppSubscription :one
+-- name: GetUserSubscription :one
 SELECT
     s.*,
     p.name AS plan_name,
@@ -100,13 +107,14 @@ SELECT
     p.retention_days,
     p.webhooks_enabled,
     p.video_calls_enabled,
-    p.moderation_enabled
-FROM app_subscriptions s
+    p.moderation_enabled,
+    p.max_apps
+FROM user_subscriptions s
 INNER JOIN plans p ON p.slug = s.plan_slug
-WHERE s.app_id = $1;
+WHERE s.user_id = $1;
 
--- name: UpdateAppSubscription :one
-UPDATE app_subscriptions
+-- name: UpdateUserSubscription :one
+UPDATE user_subscriptions
 SET
     plan_slug = COALESCE(sqlc.narg('plan_slug'), plan_slug),
     status = COALESCE(sqlc.narg('status'), status),
@@ -115,12 +123,12 @@ SET
     current_period_start = COALESCE(sqlc.narg('current_period_start'), current_period_start),
     current_period_end = COALESCE(sqlc.narg('current_period_end'), current_period_end),
     updated_at = NOW()
-WHERE app_id = sqlc.arg('app_id')
+WHERE user_id = sqlc.arg('user_id')
 RETURNING *;
 
--- name: GetAppSubscriptionByStripeSubscriptionID :one
+-- name: GetUserSubscriptionByStripeSubscriptionID :one
 SELECT *
-FROM app_subscriptions
+FROM user_subscriptions
 WHERE stripe_subscription_id = $1;
 
 -- name: IncrementAppMessageUsage :one
@@ -137,6 +145,26 @@ SELECT messages_count
 FROM usage_counters
 WHERE app_id = $1
   AND period_month = date_trunc('month', NOW())::date;
+
+-- name: SumOwnerMessageUsage :one
+SELECT COALESCE(SUM(u.messages_count), 0)::bigint AS messages_count
+FROM usage_counters u
+INNER JOIN apps a ON a.id = u.app_id
+WHERE a.owner_id = $1
+  AND u.period_month = date_trunc('month', NOW())::date;
+
+-- name: ListOwnerAppMessageUsage :many
+SELECT
+    a.id AS app_id,
+    a.name AS app_name,
+    a.slug AS app_slug,
+    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
+FROM apps a
+LEFT JOIN usage_counters u
+    ON u.app_id = a.id
+   AND u.period_month = date_trunc('month', NOW())::date
+WHERE a.owner_id = $1
+ORDER BY a.created_at DESC;
 
 -- name: SetUserStripeCustomerID :exec
 UPDATE users
@@ -163,24 +191,29 @@ ON CONFLICT (key) DO UPDATE SET
 
 -- name: AdminCountActiveSubscriptions :one
 SELECT COUNT(*)::bigint
-FROM app_subscriptions
+FROM user_subscriptions
 WHERE status IN ('active', 'trialing');
 
--- name: AdminListAppSubscriptions :many
+-- name: AdminListUserSubscriptions :many
 SELECT
-    s.app_id,
-    a.name AS app_name,
-    a.slug AS app_slug,
+    s.user_id,
+    u.email AS user_email,
+    u.username AS user_username,
     s.plan_slug,
     p.name AS plan_name,
     s.status,
     s.current_period_end,
-    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
-FROM app_subscriptions s
-INNER JOIN apps a ON a.id = s.app_id
+    p.max_apps,
+    (SELECT COUNT(*)::bigint FROM apps a WHERE a.owner_id = s.user_id) AS apps_count,
+    COALESCE((
+        SELECT SUM(uc.messages_count)::bigint
+        FROM usage_counters uc
+        INNER JOIN apps a2 ON a2.id = uc.app_id
+        WHERE a2.owner_id = s.user_id
+          AND uc.period_month = date_trunc('month', NOW())::date
+    ), 0)::bigint AS messages_this_month
+FROM user_subscriptions s
+INNER JOIN users u ON u.id = s.user_id
 INNER JOIN plans p ON p.slug = s.plan_slug
-LEFT JOIN usage_counters u
-    ON u.app_id = s.app_id
-   AND u.period_month = date_trunc('month', NOW())::date
 ORDER BY s.updated_at DESC
 LIMIT $1 OFFSET $2;

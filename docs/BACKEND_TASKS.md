@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-07-07 (Phase 15C — Billing & platform ops)
+> **Last updated:** 2026-10-30 (Account-level billing)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -490,12 +490,12 @@ messages
 
 ### Phase 15C — Billing & platform ops
 
-**Exit criteria:** Plan tiers in DB; app subscriptions; Stripe checkout + webhooks; usage metering; feature gates; maintenance mode.
+**Exit criteria:** Plan tiers in DB; account subscriptions; Stripe checkout + webhooks; shared usage metering; feature gates; maintenance mode.
 
 | # | Task | Status |
 |---|------|--------|
-| 15.13 | Migration: `plans`, `app_subscriptions`, `usage_counters`, `platform_settings` | [x] |
-| 15.14 | `GET /api/plans`, app billing + Stripe checkout/webhook | [x] |
+| 15.13 | Migration: `plans`, subscriptions, `usage_counters`, `platform_settings` | [x] |
+| 15.14 | `GET /api/plans`, account billing + Stripe checkout/webhook | [x] |
 | 15.15 | Message usage metering + plan limits (chat + `/v1/messages`) | [x] |
 | 15.16 | Feature gates: webhooks (Growth+), video calls (Growth+) | [x] |
 | 15.17 | Maintenance mode middleware + admin platform settings | [x] |
@@ -509,6 +509,14 @@ messages
 | 15.20 | Admin CRUD `/api/admin/plans` — limits, features, Stripe price ID | [x] |
 | 15.21 | Checkout uses `plans.stripe_price_id` (remove env price mapping) | [x] |
 | 15.22 | Landing pricing + `/admin/plans` UI driven by API | [x] |
+
+### Phase 15C.2 — Account-level billing
+
+| # | Task | Status |
+|---|------|--------|
+| 15.23 | Migration: `user_subscriptions`, `plans.max_apps`, free Starter; drop `app_subscriptions` | [x] |
+| 15.24 | `GET/POST /api/billing`; shared message pool; `max_apps` gate on create app | [x] |
+| 15.25 | Admin user billing; web `/settings/billing` + pricing apps copy | [x] |
 
 ---
 
@@ -598,6 +606,7 @@ Record architectural decisions here as they are made.
 | 2026-06-06 | Workspace-scoped API paths | `/api/workspaces/:workspace_id/...` replaces flat channel routes |
 | 2026-06-06 | Channel names unique per workspace | DB index on `(workspace_id, name)` |
 | 2026-06-06 | Workspace roles: owner/admin/moderator/member | Enforced via `internal/authz`; read-only channels for announcements |
+| 2026-10-30 | Billing is per user account, not per app | Shared monthly message pool + included app count; Stripe Checkout upgrades the account plan |
 | 2026-07-07 | Sandbox test keys stay on the production API host | Abuse prevention uses sandbox caps, stricter rate limits, key expiry, and TTL cleanup instead of blocking `bx_test_*` on `api.breno-x.com` |
 
 ---
@@ -606,6 +615,7 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-10-30 | Account-level billing (shared pool + free Starter): `user_subscriptions`, `max_apps`, `/api/billing`, admin user subscription APIs |
 | 2026-07-31 | Maintenance mode bypasses `/auth/login`, `/auth/refresh`, and `/api/users/me` so admins can always sign in to disable it (prevents lockout) |
 | 2026-07-31 | Broadcast `message.new` from chat service for REST-created messages (files sent via REST now appear realtime); WS path reuses same broadcast |
 | 2026-07-31 | Attachment downloads via authenticated API content proxy; `url` is `/api/.../content` (not MinIO/S3 path) |
@@ -614,6 +624,7 @@ Record architectural decisions here as they are made.
 | 2026-07-30 | `POST /v1/users`: reuse existing user by email on unique conflict and (re)link `app_users` / workspace membership |
 | 2026-07-07 | Sandbox enforcement: hard caps for test users/channels/messages, stricter sandbox rate limits, sandbox key expiry, TTL cleanup, and HTTPS-only non-localhost origins |
 | 2026-07-07 | Sandbox/live polish: admin `sandbox_workspace_id`, Postman session tests, web docs + console workspace cards |
+| 2026-10-30 | Account-level billing: one free Starter per user, shared message pool, `max_apps`, `/api/billing` (+ checkout); drop per-app subscriptions |
 | 2026-07-07 | Sandbox/live isolation: dual workspace per app, `key_env` JWT claim, embed workspace guard, sandbox skips billing/webhooks |
 | 2026-07-07 | Fix stuck channel calls: end call when ≤1 participant remains after leave; clear stale solo-participant calls on re-initiate |
 | 2026-07-07 | Per-app browser origin allowlisting (`allowed_origins`, `PATCH /api/apps/:id/origins`, embed JWT `app_id`) |

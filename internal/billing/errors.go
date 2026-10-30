@@ -3,19 +3,20 @@ package billing
 import "errors"
 
 var (
-	ErrNotFound           = errors.New("billing record not found")
-	ErrForbidden          = errors.New("forbidden")
-	ErrInvalidPlan        = errors.New("invalid plan")
-	ErrStripeNotConfigured = errors.New("stripe billing is not configured")
+	ErrNotFound               = errors.New("billing record not found")
+	ErrForbidden              = errors.New("forbidden")
+	ErrInvalidPlan            = errors.New("invalid plan")
+	ErrStripeNotConfigured    = errors.New("stripe billing is not configured")
 	ErrPlanStripePriceMissing = errors.New("plan is missing stripe_price_id")
-	ErrMessageLimit       = errors.New("monthly message limit reached")
-	ErrSubscriptionInactive = errors.New("subscription inactive")
-	ErrWebhooksNotAllowed = errors.New("webhooks not included in current plan")
-	ErrVideoNotAllowed    = errors.New("video calls not included in current plan")
-	ErrInvalidRequest     = errors.New("invalid request")
-	ErrPlanInUse          = errors.New("plan has active subscriptions")
-	ErrSlugTaken          = errors.New("plan slug already taken")
-	ErrInvalidSlug        = errors.New("invalid plan slug")
+	ErrMessageLimit           = errors.New("monthly message limit reached")
+	ErrSubscriptionInactive   = errors.New("subscription inactive")
+	ErrWebhooksNotAllowed     = errors.New("webhooks not included in current plan")
+	ErrVideoNotAllowed        = errors.New("video calls not included in current plan")
+	ErrAppLimit               = errors.New("app limit reached for current plan")
+	ErrInvalidRequest         = errors.New("invalid request")
+	ErrPlanInUse              = errors.New("plan has active subscriptions")
+	ErrSlugTaken              = errors.New("plan slug already taken")
+	ErrInvalidSlug            = errors.New("invalid plan slug")
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 
 func statusAllowsUsage(status string) bool {
 	switch status {
-	case StatusActive, StatusTrialing, StatusIncomplete:
+	case StatusActive, StatusTrialing:
 		return true
 	default:
 		return false

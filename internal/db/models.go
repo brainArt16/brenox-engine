@@ -32,19 +32,6 @@ type App struct {
 	SandboxWorkspaceID int64
 }
 
-type AppSubscription struct {
-	ID                   int64
-	AppID                int64
-	PlanSlug             string
-	Status               string
-	StripeCustomerID     pgtype.Text
-	StripeSubscriptionID pgtype.Text
-	CurrentPeriodStart   pgtype.Timestamptz
-	CurrentPeriodEnd     pgtype.Timestamptz
-	CreatedAt            pgtype.Timestamptz
-	UpdatedAt            pgtype.Timestamptz
-}
-
 type AppUser struct {
 	ID          int64
 	AppID       int64
@@ -177,6 +164,7 @@ type Plan struct {
 	SortOrder         int32
 	Description       string
 	UpdatedAt         pgtype.Timestamptz
+	MaxApps           int32
 }
 
 type PlatformSetting struct {
@@ -210,6 +198,19 @@ type User struct {
 	SuspendedAt         pgtype.Timestamptz
 	TokensInvalidatedAt pgtype.Timestamptz
 	StripeCustomerID    pgtype.Text
+}
+
+type UserSubscription struct {
+	ID                   int64
+	UserID               int64
+	PlanSlug             string
+	Status               string
+	StripeCustomerID     pgtype.Text
+	StripeSubscriptionID pgtype.Text
+	CurrentPeriodStart   pgtype.Timestamptz
+	CurrentPeriodEnd     pgtype.Timestamptz
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
 }
 
 type Webhook struct {

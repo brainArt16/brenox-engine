@@ -998,11 +998,11 @@
           "request": { "method": "GET", "url": "{{baseUrl}}/api/platform/status" }
         },
         {
-          "name": "Get App Billing",
+          "name": "Get Account Billing",
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": "{{baseUrl}}/api/apps/1/billing"
+            "url": "{{baseUrl}}/api/billing"
           }
         },
         {
@@ -1012,7 +1012,7 @@
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": { "mode": "raw", "raw": "{\n  \"plan_slug\": \"growth\"\n}" },
-            "url": "{{baseUrl}}/api/apps/1/billing/checkout"
+            "url": "{{baseUrl}}/api/billing/checkout"
           }
         },
         {
@@ -1029,6 +1029,24 @@
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
             "url": "{{baseUrl}}/api/admin/billing/subscriptions"
+          }
+        },
+        {
+          "name": "Admin Get User Billing",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/api/admin/users/1/billing"
+          }
+        },
+        {
+          "name": "Admin Update User Subscription",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plan_slug\": \"growth\",\n  \"status\": \"active\"\n}" },
+            "url": "{{baseUrl}}/api/admin/users/1/subscription"
           }
         },
         {
@@ -1055,7 +1073,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"slug\": \"pro\",\n  \"name\": \"Pro\",\n  \"price_cents\": 1500,\n  \"messages_limit\": 100000,\n  \"connections_limit\": 1000,\n  \"retention_days\": 60,\n  \"webhooks_enabled\": true,\n  \"is_active\": true\n}"
+              "raw": "{\n  \"slug\": \"pro\",\n  \"name\": \"Pro\",\n  \"price_cents\": 1500,\n  \"messages_limit\": 100000,\n  \"connections_limit\": 1000,\n  \"retention_days\": 60,\n  \"max_apps\": 5,\n  \"webhooks_enabled\": true,\n  \"is_active\": true\n}"
             },
             "url": "{{baseUrl}}/api/admin/plans"
           }
@@ -1068,7 +1086,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"price_cents\": 2500,\n  \"stripe_price_id\": \"price_xxx\",\n  \"webhooks_enabled\": true\n}"
+              "raw": "{\n  \"price_cents\": 2500,\n  \"stripe_price_id\": \"price_xxx\",\n  \"max_apps\": 5,\n  \"webhooks_enabled\": true\n}"
             },
             "url": "{{baseUrl}}/api/admin/plans/growth"
           }

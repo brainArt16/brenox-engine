@@ -113,6 +113,10 @@ func main() {
 	authHandlerInstance.SetAdminBootstrap(platformAdminService)
 	usersHandlerInstance.SetPlatformAdminService(platformAdminService)
 
+	billingService := billing.NewService(queries, billing.LoadConfig())
+	billingHandler := billing.NewHandler(billingService)
+	authHandlerInstance.SetBillingProvisioner(billingService)
+
 	workspacesService := workspacesHandler.NewService(queries, authzService)
 	workspacesService.SetInviteNotifier(notificationService)
 	workspacesHandlerInstance := workspacesHandler.NewHandler(workspacesService)
@@ -143,9 +147,6 @@ func main() {
 		callsHandler.LoadConfig(),
 	)
 	callsHandlerInstance := callsHandler.NewHandler(callsService)
-
-	billingService := billing.NewService(queries, billing.LoadConfig())
-	billingHandler := billing.NewHandler(billingService)
 
 	originChecker := origins.NewChecker(queries)
 
@@ -240,8 +241,8 @@ func main() {
 	api.POST("/apps/:app_id/webhooks", appsHandlerInstance.CreateWebhook)
 	api.GET("/apps/:app_id/webhooks", appsHandlerInstance.ListWebhooks)
 	api.DELETE("/apps/:app_id/webhooks/:webhook_id", appsHandlerInstance.DeleteWebhook)
-	api.GET("/apps/:app_id/billing", billingHandler.GetAppBilling)
-	api.POST("/apps/:app_id/billing/checkout", billingHandler.CreateCheckout)
+	api.GET("/billing", billingHandler.GetAccountBilling)
+	api.POST("/billing/checkout", billingHandler.CreateCheckout)
 
 	admin := api.Group("/admin")
 	admin.Use(middleware.PlatformUserMiddleware(queries))
@@ -250,6 +251,8 @@ func main() {
 	admin.GET("/users", platformAdminHandler.ListUsers)
 	admin.GET("/users/:id", platformAdminHandler.GetUser)
 	admin.PATCH("/users/:id", middleware.RequirePlatformWrite(), platformAdminHandler.UpdateUser)
+	admin.GET("/users/:id/billing", billingHandler.AdminGetUserBilling)
+	admin.PATCH("/users/:id/subscription", middleware.RequirePlatformWrite(), billingHandler.AdminUpdateUserSubscription)
 	admin.GET("/workspaces", platformAdminHandler.ListWorkspaces)
 	admin.GET("/workspaces/:id", platformAdminHandler.GetWorkspace)
 	admin.GET("/workspaces/:id/members", platformAdminHandler.ListWorkspaceMembers)
@@ -260,8 +263,6 @@ func main() {
 	admin.GET("/audit-logs", platformAdminHandler.ListAuditLogs)
 	admin.GET("/billing/overview", billingHandler.AdminGetBillingOverview)
 	admin.GET("/billing/subscriptions", billingHandler.AdminListSubscriptions)
-	admin.GET("/apps/:app_id/billing", billingHandler.AdminGetAppBilling)
-	admin.PATCH("/apps/:app_id/subscription", middleware.RequirePlatformWrite(), billingHandler.AdminUpdateAppSubscription)
 	admin.GET("/platform-settings", billingHandler.AdminGetPlatformSettings)
 	admin.PATCH("/platform-settings", middleware.RequirePlatformWrite(), billingHandler.AdminUpdatePlatformSettings)
 	admin.GET("/plans", billingHandler.AdminListPlans)

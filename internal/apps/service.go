@@ -26,7 +26,7 @@ type Service struct {
 }
 
 type BillingHook interface {
-	OnAppCreated(ctx context.Context, appID int64, planSlug string) error
+	AssertCanCreateApp(ctx context.Context, userID int64) error
 	CheckCanCreateWebhook(ctx context.Context, appID int64) error
 }
 
@@ -62,6 +62,12 @@ func (s *Service) CreateApp(ctx context.Context, ownerID int64, req CreateAppReq
 		return AppResponse{}, ErrSlugTaken
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return AppResponse{}, err
+	}
+
+	if s.billing != nil {
+		if err := s.billing.AssertCanCreateApp(ctx, ownerID); err != nil {
+			return AppResponse{}, err
+		}
 	}
 
 	workspace, err := s.queries.CreateWorkspace(ctx, db.CreateWorkspaceParams{
@@ -107,12 +113,6 @@ func (s *Service) CreateApp(ctx context.Context, ownerID int64, req CreateAppReq
 	})
 	if err != nil {
 		return AppResponse{}, err
-	}
-
-	if s.billing != nil {
-		if err := s.billing.OnAppCreated(ctx, app.ID, req.PlanSlug); err != nil {
-			return AppResponse{}, err
-		}
 	}
 
 	return toAppResponse(app), nil

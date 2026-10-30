@@ -13,7 +13,7 @@ import (
 
 const adminCountActiveSubscriptions = `-- name: AdminCountActiveSubscriptions :one
 SELECT COUNT(*)::bigint
-FROM app_subscriptions
+FROM user_subscriptions
 WHERE status IN ('active', 'trialing')
 `
 
@@ -24,59 +24,68 @@ func (q *Queries) AdminCountActiveSubscriptions(ctx context.Context) (int64, err
 	return column_1, err
 }
 
-const adminListAppSubscriptions = `-- name: AdminListAppSubscriptions :many
+const adminListUserSubscriptions = `-- name: AdminListUserSubscriptions :many
 SELECT
-    s.app_id,
-    a.name AS app_name,
-    a.slug AS app_slug,
+    s.user_id,
+    u.email AS user_email,
+    u.username AS user_username,
     s.plan_slug,
     p.name AS plan_name,
     s.status,
     s.current_period_end,
-    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
-FROM app_subscriptions s
-INNER JOIN apps a ON a.id = s.app_id
+    p.max_apps,
+    (SELECT COUNT(*)::bigint FROM apps a WHERE a.owner_id = s.user_id) AS apps_count,
+    COALESCE((
+        SELECT SUM(uc.messages_count)::bigint
+        FROM usage_counters uc
+        INNER JOIN apps a2 ON a2.id = uc.app_id
+        WHERE a2.owner_id = s.user_id
+          AND uc.period_month = date_trunc('month', NOW())::date
+    ), 0)::bigint AS messages_this_month
+FROM user_subscriptions s
+INNER JOIN users u ON u.id = s.user_id
 INNER JOIN plans p ON p.slug = s.plan_slug
-LEFT JOIN usage_counters u
-    ON u.app_id = s.app_id
-   AND u.period_month = date_trunc('month', NOW())::date
 ORDER BY s.updated_at DESC
 LIMIT $1 OFFSET $2
 `
 
-type AdminListAppSubscriptionsParams struct {
+type AdminListUserSubscriptionsParams struct {
 	Limit  int32
 	Offset int32
 }
 
-type AdminListAppSubscriptionsRow struct {
-	AppID             int64
-	AppName           string
-	AppSlug           string
+type AdminListUserSubscriptionsRow struct {
+	UserID            int64
+	UserEmail         string
+	UserUsername      string
 	PlanSlug          string
 	PlanName          string
 	Status            string
 	CurrentPeriodEnd  pgtype.Timestamptz
+	MaxApps           int32
+	AppsCount         int64
 	MessagesThisMonth int64
 }
 
-func (q *Queries) AdminListAppSubscriptions(ctx context.Context, arg AdminListAppSubscriptionsParams) ([]AdminListAppSubscriptionsRow, error) {
-	rows, err := q.db.Query(ctx, adminListAppSubscriptions, arg.Limit, arg.Offset)
+func (q *Queries) AdminListUserSubscriptions(ctx context.Context, arg AdminListUserSubscriptionsParams) ([]AdminListUserSubscriptionsRow, error) {
+	rows, err := q.db.Query(ctx, adminListUserSubscriptions, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AdminListAppSubscriptionsRow
+	var items []AdminListUserSubscriptionsRow
 	for rows.Next() {
-		var i AdminListAppSubscriptionsRow
+		var i AdminListUserSubscriptionsRow
 		if err := rows.Scan(
-			&i.AppID,
-			&i.AppName,
-			&i.AppSlug,
+			&i.UserID,
+			&i.UserEmail,
+			&i.UserUsername,
 			&i.PlanSlug,
 			&i.PlanName,
 			&i.Status,
 			&i.CurrentPeriodEnd,
+			&i.MaxApps,
+			&i.AppsCount,
 			&i.MessagesThisMonth,
 		); err != nil {
 			return nil, err
@@ -89,9 +98,22 @@ func (q *Queries) AdminListAppSubscriptions(ctx context.Context, arg AdminListAp
 	return items, nil
 }
 
+const countAppsByOwner = `-- name: CountAppsByOwner :one
+SELECT COUNT(*)::bigint
+FROM apps
+WHERE owner_id = $1
+`
+
+func (q *Queries) CountAppsByOwner(ctx context.Context, ownerID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countAppsByOwner, ownerID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countSubscriptionsForPlan = `-- name: CountSubscriptionsForPlan :one
 SELECT COUNT(*)::bigint
-FROM app_subscriptions
+FROM user_subscriptions
 WHERE plan_slug = $1
 `
 
@@ -100,40 +122,6 @@ func (q *Queries) CountSubscriptionsForPlan(ctx context.Context, planSlug string
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
-}
-
-const createAppSubscription = `-- name: CreateAppSubscription :one
-INSERT INTO app_subscriptions (
-    app_id,
-    plan_slug,
-    status
-)
-VALUES ($1, $2, $3)
-RETURNING id, app_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
-`
-
-type CreateAppSubscriptionParams struct {
-	AppID    int64
-	PlanSlug string
-	Status   string
-}
-
-func (q *Queries) CreateAppSubscription(ctx context.Context, arg CreateAppSubscriptionParams) (AppSubscription, error) {
-	row := q.db.QueryRow(ctx, createAppSubscription, arg.AppID, arg.PlanSlug, arg.Status)
-	var i AppSubscription
-	err := row.Scan(
-		&i.ID,
-		&i.AppID,
-		&i.PlanSlug,
-		&i.Status,
-		&i.StripeCustomerID,
-		&i.StripeSubscriptionID,
-		&i.CurrentPeriodStart,
-		&i.CurrentPeriodEnd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }
 
 const createPlan = `-- name: CreatePlan :one
@@ -151,10 +139,11 @@ INSERT INTO plans (
     is_active,
     is_highlighted,
     sort_order,
-    description
+    description,
+    max_apps
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 `
 
 type CreatePlanParams struct {
@@ -172,6 +161,7 @@ type CreatePlanParams struct {
 	IsHighlighted     bool
 	SortOrder         int32
 	Description       string
+	MaxApps           int32
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error) {
@@ -190,6 +180,7 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		arg.IsHighlighted,
 		arg.SortOrder,
 		arg.Description,
+		arg.MaxApps,
 	)
 	var i Plan
 	err := row.Scan(
@@ -209,6 +200,41 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.SortOrder,
 		&i.Description,
 		&i.UpdatedAt,
+		&i.MaxApps,
+	)
+	return i, err
+}
+
+const createUserSubscription = `-- name: CreateUserSubscription :one
+INSERT INTO user_subscriptions (
+    user_id,
+    plan_slug,
+    status
+)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
+`
+
+type CreateUserSubscriptionParams struct {
+	UserID   int64
+	PlanSlug string
+	Status   string
+}
+
+func (q *Queries) CreateUserSubscription(ctx context.Context, arg CreateUserSubscriptionParams) (UserSubscription, error) {
+	row := q.db.QueryRow(ctx, createUserSubscription, arg.UserID, arg.PlanSlug, arg.Status)
+	var i UserSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.PlanSlug,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -224,7 +250,7 @@ func (q *Queries) DeletePlan(ctx context.Context, slug string) error {
 }
 
 const getActivePlan = `-- name: GetActivePlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 FROM plans
 WHERE slug = $1 AND is_active = true
 `
@@ -249,6 +275,7 @@ func (q *Queries) GetActivePlan(ctx context.Context, slug string) (Plan, error) 
 		&i.SortOrder,
 		&i.Description,
 		&i.UpdatedAt,
+		&i.MaxApps,
 	)
 	return i, err
 }
@@ -290,95 +317,8 @@ func (q *Queries) GetAppMessageUsage(ctx context.Context, appID int64) (int64, e
 	return messages_count, err
 }
 
-const getAppSubscription = `-- name: GetAppSubscription :one
-SELECT
-    s.id, s.app_id, s.plan_slug, s.status, s.stripe_customer_id, s.stripe_subscription_id, s.current_period_start, s.current_period_end, s.created_at, s.updated_at,
-    p.name AS plan_name,
-    p.price_cents,
-    p.messages_limit,
-    p.connections_limit,
-    p.retention_days,
-    p.webhooks_enabled,
-    p.video_calls_enabled,
-    p.moderation_enabled
-FROM app_subscriptions s
-INNER JOIN plans p ON p.slug = s.plan_slug
-WHERE s.app_id = $1
-`
-
-type GetAppSubscriptionRow struct {
-	ID                   int64
-	AppID                int64
-	PlanSlug             string
-	Status               string
-	StripeCustomerID     pgtype.Text
-	StripeSubscriptionID pgtype.Text
-	CurrentPeriodStart   pgtype.Timestamptz
-	CurrentPeriodEnd     pgtype.Timestamptz
-	CreatedAt            pgtype.Timestamptz
-	UpdatedAt            pgtype.Timestamptz
-	PlanName             string
-	PriceCents           int32
-	MessagesLimit        int32
-	ConnectionsLimit     int32
-	RetentionDays        int32
-	WebhooksEnabled      bool
-	VideoCallsEnabled    bool
-	ModerationEnabled    bool
-}
-
-func (q *Queries) GetAppSubscription(ctx context.Context, appID int64) (GetAppSubscriptionRow, error) {
-	row := q.db.QueryRow(ctx, getAppSubscription, appID)
-	var i GetAppSubscriptionRow
-	err := row.Scan(
-		&i.ID,
-		&i.AppID,
-		&i.PlanSlug,
-		&i.Status,
-		&i.StripeCustomerID,
-		&i.StripeSubscriptionID,
-		&i.CurrentPeriodStart,
-		&i.CurrentPeriodEnd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.PlanName,
-		&i.PriceCents,
-		&i.MessagesLimit,
-		&i.ConnectionsLimit,
-		&i.RetentionDays,
-		&i.WebhooksEnabled,
-		&i.VideoCallsEnabled,
-		&i.ModerationEnabled,
-	)
-	return i, err
-}
-
-const getAppSubscriptionByStripeSubscriptionID = `-- name: GetAppSubscriptionByStripeSubscriptionID :one
-SELECT id, app_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
-FROM app_subscriptions
-WHERE stripe_subscription_id = $1
-`
-
-func (q *Queries) GetAppSubscriptionByStripeSubscriptionID(ctx context.Context, stripeSubscriptionID pgtype.Text) (AppSubscription, error) {
-	row := q.db.QueryRow(ctx, getAppSubscriptionByStripeSubscriptionID, stripeSubscriptionID)
-	var i AppSubscription
-	err := row.Scan(
-		&i.ID,
-		&i.AppID,
-		&i.PlanSlug,
-		&i.Status,
-		&i.StripeCustomerID,
-		&i.StripeSubscriptionID,
-		&i.CurrentPeriodStart,
-		&i.CurrentPeriodEnd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getDefaultPlan = `-- name: GetDefaultPlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 FROM plans
 WHERE is_active = true
 ORDER BY sort_order ASC, price_cents ASC
@@ -405,12 +345,13 @@ func (q *Queries) GetDefaultPlan(ctx context.Context) (Plan, error) {
 		&i.SortOrder,
 		&i.Description,
 		&i.UpdatedAt,
+		&i.MaxApps,
 	)
 	return i, err
 }
 
 const getPlan = `-- name: GetPlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 FROM plans
 WHERE slug = $1
 `
@@ -435,6 +376,7 @@ func (q *Queries) GetPlan(ctx context.Context, slug string) (Plan, error) {
 		&i.SortOrder,
 		&i.Description,
 		&i.UpdatedAt,
+		&i.MaxApps,
 	)
 	return i, err
 }
@@ -465,6 +407,96 @@ func (q *Queries) GetUserStripeCustomerID(ctx context.Context, id int64) (pgtype
 	return stripe_customer_id, err
 }
 
+const getUserSubscription = `-- name: GetUserSubscription :one
+SELECT
+    s.id, s.user_id, s.plan_slug, s.status, s.stripe_customer_id, s.stripe_subscription_id, s.current_period_start, s.current_period_end, s.created_at, s.updated_at,
+    p.name AS plan_name,
+    p.price_cents,
+    p.messages_limit,
+    p.connections_limit,
+    p.retention_days,
+    p.webhooks_enabled,
+    p.video_calls_enabled,
+    p.moderation_enabled,
+    p.max_apps
+FROM user_subscriptions s
+INNER JOIN plans p ON p.slug = s.plan_slug
+WHERE s.user_id = $1
+`
+
+type GetUserSubscriptionRow struct {
+	ID                   int64
+	UserID               int64
+	PlanSlug             string
+	Status               string
+	StripeCustomerID     pgtype.Text
+	StripeSubscriptionID pgtype.Text
+	CurrentPeriodStart   pgtype.Timestamptz
+	CurrentPeriodEnd     pgtype.Timestamptz
+	CreatedAt            pgtype.Timestamptz
+	UpdatedAt            pgtype.Timestamptz
+	PlanName             string
+	PriceCents           int32
+	MessagesLimit        int32
+	ConnectionsLimit     int32
+	RetentionDays        int32
+	WebhooksEnabled      bool
+	VideoCallsEnabled    bool
+	ModerationEnabled    bool
+	MaxApps              int32
+}
+
+func (q *Queries) GetUserSubscription(ctx context.Context, userID int64) (GetUserSubscriptionRow, error) {
+	row := q.db.QueryRow(ctx, getUserSubscription, userID)
+	var i GetUserSubscriptionRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.PlanSlug,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PlanName,
+		&i.PriceCents,
+		&i.MessagesLimit,
+		&i.ConnectionsLimit,
+		&i.RetentionDays,
+		&i.WebhooksEnabled,
+		&i.VideoCallsEnabled,
+		&i.ModerationEnabled,
+		&i.MaxApps,
+	)
+	return i, err
+}
+
+const getUserSubscriptionByStripeSubscriptionID = `-- name: GetUserSubscriptionByStripeSubscriptionID :one
+SELECT id, user_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
+FROM user_subscriptions
+WHERE stripe_subscription_id = $1
+`
+
+func (q *Queries) GetUserSubscriptionByStripeSubscriptionID(ctx context.Context, stripeSubscriptionID pgtype.Text) (UserSubscription, error) {
+	row := q.db.QueryRow(ctx, getUserSubscriptionByStripeSubscriptionID, stripeSubscriptionID)
+	var i UserSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.PlanSlug,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const incrementAppMessageUsage = `-- name: IncrementAppMessageUsage :one
 INSERT INTO usage_counters (app_id, period_month, messages_count)
 VALUES ($1, date_trunc('month', NOW())::date, 1)
@@ -482,8 +514,54 @@ func (q *Queries) IncrementAppMessageUsage(ctx context.Context, appID int64) (in
 	return messages_count, err
 }
 
+const listOwnerAppMessageUsage = `-- name: ListOwnerAppMessageUsage :many
+SELECT
+    a.id AS app_id,
+    a.name AS app_name,
+    a.slug AS app_slug,
+    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
+FROM apps a
+LEFT JOIN usage_counters u
+    ON u.app_id = a.id
+   AND u.period_month = date_trunc('month', NOW())::date
+WHERE a.owner_id = $1
+ORDER BY a.created_at DESC
+`
+
+type ListOwnerAppMessageUsageRow struct {
+	AppID             int64
+	AppName           string
+	AppSlug           string
+	MessagesThisMonth int64
+}
+
+func (q *Queries) ListOwnerAppMessageUsage(ctx context.Context, ownerID int64) ([]ListOwnerAppMessageUsageRow, error) {
+	rows, err := q.db.Query(ctx, listOwnerAppMessageUsage, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOwnerAppMessageUsageRow
+	for rows.Next() {
+		var i ListOwnerAppMessageUsageRow
+		if err := rows.Scan(
+			&i.AppID,
+			&i.AppName,
+			&i.AppSlug,
+			&i.MessagesThisMonth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlans = `-- name: ListPlans :many
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 FROM plans
 WHERE is_active = true
 ORDER BY sort_order ASC, price_cents ASC
@@ -515,6 +593,7 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 			&i.SortOrder,
 			&i.Description,
 			&i.UpdatedAt,
+			&i.MaxApps,
 		); err != nil {
 			return nil, err
 		}
@@ -527,7 +606,7 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 }
 
 const listPlansAdmin = `-- name: ListPlansAdmin :many
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 FROM plans
 ORDER BY sort_order ASC, price_cents ASC
 `
@@ -558,6 +637,7 @@ func (q *Queries) ListPlansAdmin(ctx context.Context) ([]Plan, error) {
 			&i.SortOrder,
 			&i.Description,
 			&i.UpdatedAt,
+			&i.MaxApps,
 		); err != nil {
 			return nil, err
 		}
@@ -586,54 +666,19 @@ func (q *Queries) SetUserStripeCustomerID(ctx context.Context, arg SetUserStripe
 	return err
 }
 
-const updateAppSubscription = `-- name: UpdateAppSubscription :one
-UPDATE app_subscriptions
-SET
-    plan_slug = COALESCE($1, plan_slug),
-    status = COALESCE($2, status),
-    stripe_customer_id = COALESCE($3, stripe_customer_id),
-    stripe_subscription_id = COALESCE($4, stripe_subscription_id),
-    current_period_start = COALESCE($5, current_period_start),
-    current_period_end = COALESCE($6, current_period_end),
-    updated_at = NOW()
-WHERE app_id = $7
-RETURNING id, app_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
+const sumOwnerMessageUsage = `-- name: SumOwnerMessageUsage :one
+SELECT COALESCE(SUM(u.messages_count), 0)::bigint AS messages_count
+FROM usage_counters u
+INNER JOIN apps a ON a.id = u.app_id
+WHERE a.owner_id = $1
+  AND u.period_month = date_trunc('month', NOW())::date
 `
 
-type UpdateAppSubscriptionParams struct {
-	PlanSlug             pgtype.Text
-	Status               pgtype.Text
-	StripeCustomerID     pgtype.Text
-	StripeSubscriptionID pgtype.Text
-	CurrentPeriodStart   pgtype.Timestamptz
-	CurrentPeriodEnd     pgtype.Timestamptz
-	AppID                int64
-}
-
-func (q *Queries) UpdateAppSubscription(ctx context.Context, arg UpdateAppSubscriptionParams) (AppSubscription, error) {
-	row := q.db.QueryRow(ctx, updateAppSubscription,
-		arg.PlanSlug,
-		arg.Status,
-		arg.StripeCustomerID,
-		arg.StripeSubscriptionID,
-		arg.CurrentPeriodStart,
-		arg.CurrentPeriodEnd,
-		arg.AppID,
-	)
-	var i AppSubscription
-	err := row.Scan(
-		&i.ID,
-		&i.AppID,
-		&i.PlanSlug,
-		&i.Status,
-		&i.StripeCustomerID,
-		&i.StripeSubscriptionID,
-		&i.CurrentPeriodStart,
-		&i.CurrentPeriodEnd,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+func (q *Queries) SumOwnerMessageUsage(ctx context.Context, ownerID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, sumOwnerMessageUsage, ownerID)
+	var messages_count int64
+	err := row.Scan(&messages_count)
+	return messages_count, err
 }
 
 const updatePlan = `-- name: UpdatePlan :one
@@ -652,9 +697,10 @@ SET
     is_highlighted = COALESCE($11, is_highlighted),
     sort_order = COALESCE($12, sort_order),
     description = COALESCE($13, description),
+    max_apps = COALESCE($14, max_apps),
     updated_at = NOW()
-WHERE slug = $14
-RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at
+WHERE slug = $15
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
 `
 
 type UpdatePlanParams struct {
@@ -671,6 +717,7 @@ type UpdatePlanParams struct {
 	IsHighlighted     pgtype.Bool
 	SortOrder         pgtype.Int4
 	Description       pgtype.Text
+	MaxApps           pgtype.Int4
 	Slug              string
 }
 
@@ -689,6 +736,7 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, e
 		arg.IsHighlighted,
 		arg.SortOrder,
 		arg.Description,
+		arg.MaxApps,
 		arg.Slug,
 	)
 	var i Plan
@@ -708,6 +756,57 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, e
 		&i.IsHighlighted,
 		&i.SortOrder,
 		&i.Description,
+		&i.UpdatedAt,
+		&i.MaxApps,
+	)
+	return i, err
+}
+
+const updateUserSubscription = `-- name: UpdateUserSubscription :one
+UPDATE user_subscriptions
+SET
+    plan_slug = COALESCE($1, plan_slug),
+    status = COALESCE($2, status),
+    stripe_customer_id = COALESCE($3, stripe_customer_id),
+    stripe_subscription_id = COALESCE($4, stripe_subscription_id),
+    current_period_start = COALESCE($5, current_period_start),
+    current_period_end = COALESCE($6, current_period_end),
+    updated_at = NOW()
+WHERE user_id = $7
+RETURNING id, user_id, plan_slug, status, stripe_customer_id, stripe_subscription_id, current_period_start, current_period_end, created_at, updated_at
+`
+
+type UpdateUserSubscriptionParams struct {
+	PlanSlug             pgtype.Text
+	Status               pgtype.Text
+	StripeCustomerID     pgtype.Text
+	StripeSubscriptionID pgtype.Text
+	CurrentPeriodStart   pgtype.Timestamptz
+	CurrentPeriodEnd     pgtype.Timestamptz
+	UserID               int64
+}
+
+func (q *Queries) UpdateUserSubscription(ctx context.Context, arg UpdateUserSubscriptionParams) (UserSubscription, error) {
+	row := q.db.QueryRow(ctx, updateUserSubscription,
+		arg.PlanSlug,
+		arg.Status,
+		arg.StripeCustomerID,
+		arg.StripeSubscriptionID,
+		arg.CurrentPeriodStart,
+		arg.CurrentPeriodEnd,
+		arg.UserID,
+	)
+	var i UserSubscription
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.PlanSlug,
+		&i.Status,
+		&i.StripeCustomerID,
+		&i.StripeSubscriptionID,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err

@@ -9,6 +9,7 @@ type PlanResponse struct {
 	MessagesLimit     int32  `json:"messages_limit"`
 	ConnectionsLimit  int32  `json:"connections_limit"`
 	RetentionDays     int32  `json:"retention_days"`
+	MaxApps           int32  `json:"max_apps"`
 	WebhooksEnabled   bool   `json:"webhooks_enabled"`
 	VideoCallsEnabled bool   `json:"video_calls_enabled"`
 	ModerationEnabled bool   `json:"moderation_enabled"`
@@ -18,9 +19,9 @@ type PlanResponse struct {
 
 type AdminPlanResponse struct {
 	PlanResponse
-	StripePriceID      string `json:"stripe_price_id,omitempty"`
-	IsActive           bool   `json:"is_active"`
-	SubscriptionCount  int64  `json:"subscription_count"`
+	StripePriceID     string `json:"stripe_price_id,omitempty"`
+	IsActive          bool   `json:"is_active"`
+	SubscriptionCount int64  `json:"subscription_count"`
 }
 
 type CreatePlanRequest struct {
@@ -32,6 +33,7 @@ type CreatePlanRequest struct {
 	MessagesLimit     int32  `json:"messages_limit"`
 	ConnectionsLimit  int32  `json:"connections_limit"`
 	RetentionDays     int32  `json:"retention_days"`
+	MaxApps           int32  `json:"max_apps"`
 	WebhooksEnabled   bool   `json:"webhooks_enabled"`
 	VideoCallsEnabled bool   `json:"video_calls_enabled"`
 	ModerationEnabled bool   `json:"moderation_enabled"`
@@ -48,6 +50,7 @@ type UpdatePlanRequest struct {
 	MessagesLimit     *int32  `json:"messages_limit"`
 	ConnectionsLimit  *int32  `json:"connections_limit"`
 	RetentionDays     *int32  `json:"retention_days"`
+	MaxApps           *int32  `json:"max_apps"`
 	WebhooksEnabled   *bool   `json:"webhooks_enabled"`
 	VideoCallsEnabled *bool   `json:"video_calls_enabled"`
 	ModerationEnabled *bool   `json:"moderation_enabled"`
@@ -61,25 +64,35 @@ type UsageResponse struct {
 	MessagesLimit     int32 `json:"messages_limit"`
 }
 
-type SubscriptionResponse struct {
-	PlanSlug          string  `json:"plan_slug"`
-	PlanName          string  `json:"plan_name"`
-	Status            string  `json:"status"`
-	PriceCents        int32   `json:"price_cents"`
-	MessagesLimit     int32   `json:"messages_limit"`
-	ConnectionsLimit  int32   `json:"connections_limit"`
-	RetentionDays     int32   `json:"retention_days"`
-	WebhooksEnabled   bool    `json:"webhooks_enabled"`
-	VideoCallsEnabled bool    `json:"video_calls_enabled"`
-	ModerationEnabled bool    `json:"moderation_enabled"`
-	CurrentPeriodEnd  string  `json:"current_period_end,omitempty"`
-	NeedsPayment      bool    `json:"needs_payment"`
+type AppUsageBreakdown struct {
+	AppID             int64  `json:"app_id"`
+	AppName           string `json:"app_name"`
+	AppSlug           string `json:"app_slug"`
+	MessagesThisMonth int64  `json:"messages_this_month"`
 }
 
-type AppBillingResponse struct {
-	AppID        int64                `json:"app_id"`
+type SubscriptionResponse struct {
+	PlanSlug          string `json:"plan_slug"`
+	PlanName          string `json:"plan_name"`
+	Status            string `json:"status"`
+	PriceCents        int32  `json:"price_cents"`
+	MessagesLimit     int32  `json:"messages_limit"`
+	ConnectionsLimit  int32  `json:"connections_limit"`
+	RetentionDays     int32  `json:"retention_days"`
+	MaxApps           int32  `json:"max_apps"`
+	WebhooksEnabled   bool   `json:"webhooks_enabled"`
+	VideoCallsEnabled bool   `json:"video_calls_enabled"`
+	ModerationEnabled bool   `json:"moderation_enabled"`
+	CurrentPeriodEnd  string `json:"current_period_end,omitempty"`
+	NeedsPayment      bool   `json:"needs_payment"`
+}
+
+type AccountBillingResponse struct {
 	Subscription SubscriptionResponse `json:"subscription"`
 	Usage        UsageResponse        `json:"usage"`
+	AppsCount    int64                `json:"apps_count"`
+	AppsLimit    int32                `json:"apps_limit"`
+	AppUsage     []AppUsageBreakdown  `json:"app_usage"`
 }
 
 type CheckoutRequest struct {
@@ -111,20 +124,18 @@ type AdminUpdateSubscriptionRequest struct {
 }
 
 type AdminSubscriptionListItem struct {
-	AppID              int64  `json:"app_id"`
-	AppName            string `json:"app_name"`
-	AppSlug            string `json:"app_slug"`
-	PlanSlug           string `json:"plan_slug"`
-	PlanName           string `json:"plan_name"`
-	Status             string `json:"status"`
-	CurrentPeriodEnd   string `json:"current_period_end,omitempty"`
-	MessagesThisMonth  int64  `json:"messages_this_month"`
+	UserID            int64  `json:"user_id"`
+	UserEmail         string `json:"user_email"`
+	UserUsername      string `json:"user_username"`
+	PlanSlug          string `json:"plan_slug"`
+	PlanName          string `json:"plan_name"`
+	Status            string `json:"status"`
+	CurrentPeriodEnd  string `json:"current_period_end,omitempty"`
+	MaxApps           int32  `json:"max_apps"`
+	AppsCount         int64  `json:"apps_count"`
+	MessagesThisMonth int64  `json:"messages_this_month"`
 }
 
 type AdminBillingOverview struct {
 	ActiveSubscriptions int64 `json:"active_subscriptions"`
-}
-
-type AdminAppBillingResponse struct {
-	AppBillingResponse
 }
