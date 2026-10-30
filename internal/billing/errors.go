@@ -12,6 +12,7 @@ var (
 	ErrSubscriptionInactive   = errors.New("subscription inactive")
 	ErrWebhooksNotAllowed     = errors.New("webhooks not included in current plan")
 	ErrVideoNotAllowed        = errors.New("video calls not included in current plan")
+	ErrVideoMinutesLimit      = errors.New("monthly video minutes limit reached")
 	ErrAppLimit               = errors.New("app limit reached for current plan")
 	ErrInvalidRequest         = errors.New("invalid request")
 	ErrPlanInUse              = errors.New("plan has active subscriptions")

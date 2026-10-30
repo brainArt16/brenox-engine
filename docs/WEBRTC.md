@@ -123,9 +123,15 @@ Example — recording start (server adds `recording_id`):
 
 ## Limits
 
-| Setting | Env var | Default |
-|---------|---------|---------|
-| Max participants per call | `CALL_MAX_PARTICIPANTS` | 25 |
+| Setting | Source | Default / notes |
+|---------|--------|-----------------|
+| Max participants per call | `CALL_MAX_PARTICIPANTS` env | 25 (hard ceiling) |
+| Plan participant cap | `plans.max_call_participants` | Applied when > 0 (effective = plan cap) |
+| Video feature | `plans.video_calls_enabled` | Start/join video returns 402 if off |
+| Video minutes / month | `plans.video_minutes_limit` | Shared across owner's apps; 402 when exhausted |
+| Metering | Call end | Ceil wall-clock minutes; only video calls with ≥2 participants; sandbox skipped |
+
+Video initiate/join failures for plan/quota map to HTTP **402** (`video calls not included…` / `monthly video minutes limit reached`). Full call → **409**.
 
 ## TURN / STUN (client-side)
 

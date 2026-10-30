@@ -148,23 +148,25 @@ type Notification struct {
 }
 
 type Plan struct {
-	Slug              string
-	Name              string
-	PriceCents        int32
-	StripePriceID     pgtype.Text
-	MessagesLimit     int32
-	ConnectionsLimit  int32
-	RetentionDays     int32
-	WebhooksEnabled   bool
-	VideoCallsEnabled bool
-	ModerationEnabled bool
-	CreatedAt         pgtype.Timestamptz
-	IsActive          bool
-	IsHighlighted     bool
-	SortOrder         int32
-	Description       string
-	UpdatedAt         pgtype.Timestamptz
-	MaxApps           int32
+	Slug                string
+	Name                string
+	PriceCents          int32
+	StripePriceID       pgtype.Text
+	MessagesLimit       int32
+	ConnectionsLimit    int32
+	RetentionDays       int32
+	WebhooksEnabled     bool
+	VideoCallsEnabled   bool
+	ModerationEnabled   bool
+	CreatedAt           pgtype.Timestamptz
+	IsActive            bool
+	IsHighlighted       bool
+	SortOrder           int32
+	Description         string
+	UpdatedAt           pgtype.Timestamptz
+	MaxApps             int32
+	VideoMinutesLimit   int32
+	MaxCallParticipants int32
 }
 
 type PlatformSetting struct {
@@ -186,6 +188,7 @@ type UsageCounter struct {
 	PeriodMonth   pgtype.Date
 	MessagesCount int64
 	UpdatedAt     pgtype.Timestamptz
+	VideoMinutes  int64
 }
 
 type User struct {

@@ -41,7 +41,14 @@ SELECT
         INNER JOIN apps a2 ON a2.id = uc.app_id
         WHERE a2.owner_id = s.user_id
           AND uc.period_month = date_trunc('month', NOW())::date
-    ), 0)::bigint AS messages_this_month
+    ), 0)::bigint AS messages_this_month,
+    COALESCE((
+        SELECT SUM(uc.video_minutes)::bigint
+        FROM usage_counters uc
+        INNER JOIN apps a3 ON a3.id = uc.app_id
+        WHERE a3.owner_id = s.user_id
+          AND uc.period_month = date_trunc('month', NOW())::date
+    ), 0)::bigint AS video_minutes_this_month
 FROM user_subscriptions s
 INNER JOIN users u ON u.id = s.user_id
 INNER JOIN plans p ON p.slug = s.plan_slug
@@ -55,16 +62,17 @@ type AdminListUserSubscriptionsParams struct {
 }
 
 type AdminListUserSubscriptionsRow struct {
-	UserID            int64
-	UserEmail         string
-	UserUsername      string
-	PlanSlug          string
-	PlanName          string
-	Status            string
-	CurrentPeriodEnd  pgtype.Timestamptz
-	MaxApps           int32
-	AppsCount         int64
-	MessagesThisMonth int64
+	UserID                int64
+	UserEmail             string
+	UserUsername          string
+	PlanSlug              string
+	PlanName              string
+	Status                string
+	CurrentPeriodEnd      pgtype.Timestamptz
+	MaxApps               int32
+	AppsCount             int64
+	MessagesThisMonth     int64
+	VideoMinutesThisMonth int64
 }
 
 func (q *Queries) AdminListUserSubscriptions(ctx context.Context, arg AdminListUserSubscriptionsParams) ([]AdminListUserSubscriptionsRow, error) {
@@ -87,6 +95,7 @@ func (q *Queries) AdminListUserSubscriptions(ctx context.Context, arg AdminListU
 			&i.MaxApps,
 			&i.AppsCount,
 			&i.MessagesThisMonth,
+			&i.VideoMinutesThisMonth,
 		); err != nil {
 			return nil, err
 		}
@@ -140,28 +149,32 @@ INSERT INTO plans (
     is_highlighted,
     sort_order,
     description,
-    max_apps
+    max_apps,
+    video_minutes_limit,
+    max_call_participants
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 `
 
 type CreatePlanParams struct {
-	Slug              string
-	Name              string
-	PriceCents        int32
-	StripePriceID     pgtype.Text
-	MessagesLimit     int32
-	ConnectionsLimit  int32
-	RetentionDays     int32
-	WebhooksEnabled   bool
-	VideoCallsEnabled bool
-	ModerationEnabled bool
-	IsActive          bool
-	IsHighlighted     bool
-	SortOrder         int32
-	Description       string
-	MaxApps           int32
+	Slug                string
+	Name                string
+	PriceCents          int32
+	StripePriceID       pgtype.Text
+	MessagesLimit       int32
+	ConnectionsLimit    int32
+	RetentionDays       int32
+	WebhooksEnabled     bool
+	VideoCallsEnabled   bool
+	ModerationEnabled   bool
+	IsActive            bool
+	IsHighlighted       bool
+	SortOrder           int32
+	Description         string
+	MaxApps             int32
+	VideoMinutesLimit   int32
+	MaxCallParticipants int32
 }
 
 func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, error) {
@@ -181,6 +194,8 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		arg.SortOrder,
 		arg.Description,
 		arg.MaxApps,
+		arg.VideoMinutesLimit,
+		arg.MaxCallParticipants,
 	)
 	var i Plan
 	err := row.Scan(
@@ -201,6 +216,8 @@ func (q *Queries) CreatePlan(ctx context.Context, arg CreatePlanParams) (Plan, e
 		&i.Description,
 		&i.UpdatedAt,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }
@@ -250,7 +267,7 @@ func (q *Queries) DeletePlan(ctx context.Context, slug string) error {
 }
 
 const getActivePlan = `-- name: GetActivePlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 FROM plans
 WHERE slug = $1 AND is_active = true
 `
@@ -276,6 +293,8 @@ func (q *Queries) GetActivePlan(ctx context.Context, slug string) (Plan, error) 
 		&i.Description,
 		&i.UpdatedAt,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }
@@ -318,7 +337,7 @@ func (q *Queries) GetAppMessageUsage(ctx context.Context, appID int64) (int64, e
 }
 
 const getDefaultPlan = `-- name: GetDefaultPlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 FROM plans
 WHERE is_active = true
 ORDER BY sort_order ASC, price_cents ASC
@@ -346,12 +365,14 @@ func (q *Queries) GetDefaultPlan(ctx context.Context) (Plan, error) {
 		&i.Description,
 		&i.UpdatedAt,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }
 
 const getPlan = `-- name: GetPlan :one
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 FROM plans
 WHERE slug = $1
 `
@@ -377,6 +398,8 @@ func (q *Queries) GetPlan(ctx context.Context, slug string) (Plan, error) {
 		&i.Description,
 		&i.UpdatedAt,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }
@@ -418,7 +441,9 @@ SELECT
     p.webhooks_enabled,
     p.video_calls_enabled,
     p.moderation_enabled,
-    p.max_apps
+    p.max_apps,
+    p.video_minutes_limit,
+    p.max_call_participants
 FROM user_subscriptions s
 INNER JOIN plans p ON p.slug = s.plan_slug
 WHERE s.user_id = $1
@@ -444,6 +469,8 @@ type GetUserSubscriptionRow struct {
 	VideoCallsEnabled    bool
 	ModerationEnabled    bool
 	MaxApps              int32
+	VideoMinutesLimit    int32
+	MaxCallParticipants  int32
 }
 
 func (q *Queries) GetUserSubscription(ctx context.Context, userID int64) (GetUserSubscriptionRow, error) {
@@ -469,6 +496,8 @@ func (q *Queries) GetUserSubscription(ctx context.Context, userID int64) (GetUse
 		&i.VideoCallsEnabled,
 		&i.ModerationEnabled,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }
@@ -514,12 +543,35 @@ func (q *Queries) IncrementAppMessageUsage(ctx context.Context, appID int64) (in
 	return messages_count, err
 }
 
+const incrementAppVideoMinutes = `-- name: IncrementAppVideoMinutes :one
+INSERT INTO usage_counters (app_id, period_month, video_minutes)
+VALUES ($1, date_trunc('month', NOW())::date, $2)
+ON CONFLICT (app_id, period_month)
+DO UPDATE SET
+    video_minutes = usage_counters.video_minutes + EXCLUDED.video_minutes,
+    updated_at = NOW()
+RETURNING video_minutes
+`
+
+type IncrementAppVideoMinutesParams struct {
+	AppID        int64
+	VideoMinutes int64
+}
+
+func (q *Queries) IncrementAppVideoMinutes(ctx context.Context, arg IncrementAppVideoMinutesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, incrementAppVideoMinutes, arg.AppID, arg.VideoMinutes)
+	var video_minutes int64
+	err := row.Scan(&video_minutes)
+	return video_minutes, err
+}
+
 const listOwnerAppMessageUsage = `-- name: ListOwnerAppMessageUsage :many
 SELECT
     a.id AS app_id,
     a.name AS app_name,
     a.slug AS app_slug,
-    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
+    COALESCE(u.messages_count, 0)::bigint AS messages_this_month,
+    COALESCE(u.video_minutes, 0)::bigint AS video_minutes_this_month
 FROM apps a
 LEFT JOIN usage_counters u
     ON u.app_id = a.id
@@ -529,10 +581,11 @@ ORDER BY a.created_at DESC
 `
 
 type ListOwnerAppMessageUsageRow struct {
-	AppID             int64
-	AppName           string
-	AppSlug           string
-	MessagesThisMonth int64
+	AppID                 int64
+	AppName               string
+	AppSlug               string
+	MessagesThisMonth     int64
+	VideoMinutesThisMonth int64
 }
 
 func (q *Queries) ListOwnerAppMessageUsage(ctx context.Context, ownerID int64) ([]ListOwnerAppMessageUsageRow, error) {
@@ -549,6 +602,7 @@ func (q *Queries) ListOwnerAppMessageUsage(ctx context.Context, ownerID int64) (
 			&i.AppName,
 			&i.AppSlug,
 			&i.MessagesThisMonth,
+			&i.VideoMinutesThisMonth,
 		); err != nil {
 			return nil, err
 		}
@@ -561,7 +615,7 @@ func (q *Queries) ListOwnerAppMessageUsage(ctx context.Context, ownerID int64) (
 }
 
 const listPlans = `-- name: ListPlans :many
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 FROM plans
 WHERE is_active = true
 ORDER BY sort_order ASC, price_cents ASC
@@ -594,6 +648,8 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 			&i.Description,
 			&i.UpdatedAt,
 			&i.MaxApps,
+			&i.VideoMinutesLimit,
+			&i.MaxCallParticipants,
 		); err != nil {
 			return nil, err
 		}
@@ -606,7 +662,7 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 }
 
 const listPlansAdmin = `-- name: ListPlansAdmin :many
-SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+SELECT slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 FROM plans
 ORDER BY sort_order ASC, price_cents ASC
 `
@@ -638,6 +694,8 @@ func (q *Queries) ListPlansAdmin(ctx context.Context) ([]Plan, error) {
 			&i.Description,
 			&i.UpdatedAt,
 			&i.MaxApps,
+			&i.VideoMinutesLimit,
+			&i.MaxCallParticipants,
 		); err != nil {
 			return nil, err
 		}
@@ -681,6 +739,21 @@ func (q *Queries) SumOwnerMessageUsage(ctx context.Context, ownerID int64) (int6
 	return messages_count, err
 }
 
+const sumOwnerVideoMinutesUsage = `-- name: SumOwnerVideoMinutesUsage :one
+SELECT COALESCE(SUM(u.video_minutes), 0)::bigint AS video_minutes
+FROM usage_counters u
+INNER JOIN apps a ON a.id = u.app_id
+WHERE a.owner_id = $1
+  AND u.period_month = date_trunc('month', NOW())::date
+`
+
+func (q *Queries) SumOwnerVideoMinutesUsage(ctx context.Context, ownerID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, sumOwnerVideoMinutesUsage, ownerID)
+	var video_minutes int64
+	err := row.Scan(&video_minutes)
+	return video_minutes, err
+}
+
 const updatePlan = `-- name: UpdatePlan :one
 UPDATE plans
 SET
@@ -698,27 +771,31 @@ SET
     sort_order = COALESCE($12, sort_order),
     description = COALESCE($13, description),
     max_apps = COALESCE($14, max_apps),
+    video_minutes_limit = COALESCE($15, video_minutes_limit),
+    max_call_participants = COALESCE($16, max_call_participants),
     updated_at = NOW()
-WHERE slug = $15
-RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps
+WHERE slug = $17
+RETURNING slug, name, price_cents, stripe_price_id, messages_limit, connections_limit, retention_days, webhooks_enabled, video_calls_enabled, moderation_enabled, created_at, is_active, is_highlighted, sort_order, description, updated_at, max_apps, video_minutes_limit, max_call_participants
 `
 
 type UpdatePlanParams struct {
-	Name              pgtype.Text
-	PriceCents        pgtype.Int4
-	StripePriceID     pgtype.Text
-	MessagesLimit     pgtype.Int4
-	ConnectionsLimit  pgtype.Int4
-	RetentionDays     pgtype.Int4
-	WebhooksEnabled   pgtype.Bool
-	VideoCallsEnabled pgtype.Bool
-	ModerationEnabled pgtype.Bool
-	IsActive          pgtype.Bool
-	IsHighlighted     pgtype.Bool
-	SortOrder         pgtype.Int4
-	Description       pgtype.Text
-	MaxApps           pgtype.Int4
-	Slug              string
+	Name                pgtype.Text
+	PriceCents          pgtype.Int4
+	StripePriceID       pgtype.Text
+	MessagesLimit       pgtype.Int4
+	ConnectionsLimit    pgtype.Int4
+	RetentionDays       pgtype.Int4
+	WebhooksEnabled     pgtype.Bool
+	VideoCallsEnabled   pgtype.Bool
+	ModerationEnabled   pgtype.Bool
+	IsActive            pgtype.Bool
+	IsHighlighted       pgtype.Bool
+	SortOrder           pgtype.Int4
+	Description         pgtype.Text
+	MaxApps             pgtype.Int4
+	VideoMinutesLimit   pgtype.Int4
+	MaxCallParticipants pgtype.Int4
+	Slug                string
 }
 
 func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, error) {
@@ -737,6 +814,8 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, e
 		arg.SortOrder,
 		arg.Description,
 		arg.MaxApps,
+		arg.VideoMinutesLimit,
+		arg.MaxCallParticipants,
 		arg.Slug,
 	)
 	var i Plan
@@ -758,6 +837,8 @@ func (q *Queries) UpdatePlan(ctx context.Context, arg UpdatePlanParams) (Plan, e
 		&i.Description,
 		&i.UpdatedAt,
 		&i.MaxApps,
+		&i.VideoMinutesLimit,
+		&i.MaxCallParticipants,
 	)
 	return i, err
 }

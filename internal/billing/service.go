@@ -175,6 +175,10 @@ func (s *Service) GetAccountBilling(ctx context.Context, userID int64) (AccountB
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return AccountBillingResponse{}, err
 	}
+	videoMinutes, err := s.queries.SumOwnerVideoMinutesUsage(ctx, userID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return AccountBillingResponse{}, err
+	}
 
 	appsCount, err := s.queries.CountAppsByOwner(ctx, userID)
 	if err != nil {
@@ -188,18 +192,21 @@ func (s *Service) GetAccountBilling(ctx context.Context, userID int64) (AccountB
 	breakdown := make([]AppUsageBreakdown, 0, len(breakdownRows))
 	for _, row := range breakdownRows {
 		breakdown = append(breakdown, AppUsageBreakdown{
-			AppID:             row.AppID,
-			AppName:           row.AppName,
-			AppSlug:           row.AppSlug,
-			MessagesThisMonth: row.MessagesThisMonth,
+			AppID:                 row.AppID,
+			AppName:               row.AppName,
+			AppSlug:               row.AppSlug,
+			MessagesThisMonth:     row.MessagesThisMonth,
+			VideoMinutesThisMonth: row.VideoMinutesThisMonth,
 		})
 	}
 
 	return AccountBillingResponse{
 		Subscription: toSubscriptionResponse(sub),
 		Usage: UsageResponse{
-			MessagesThisMonth: messages,
-			MessagesLimit:     sub.MessagesLimit,
+			MessagesThisMonth:     messages,
+			MessagesLimit:         sub.MessagesLimit,
+			VideoMinutesThisMonth: videoMinutes,
+			VideoMinutesLimit:     sub.VideoMinutesLimit,
 		},
 		AppsCount: appsCount,
 		AppsLimit: sub.MaxApps,
@@ -385,6 +392,9 @@ func (s *Service) CheckCanStartVideoCall(ctx context.Context, workspaceID int64)
 		}
 		return err
 	}
+	if workspaceID == app.SandboxWorkspaceID {
+		return nil
+	}
 	if err := s.EnsureUserSubscription(ctx, app.OwnerID); err != nil {
 		return err
 	}
@@ -398,7 +408,57 @@ func (s *Service) CheckCanStartVideoCall(ctx context.Context, workspaceID int64)
 	if !sub.VideoCallsEnabled {
 		return ErrVideoNotAllowed
 	}
+	if sub.VideoMinutesLimit > 0 {
+		used, err := s.queries.SumOwnerVideoMinutesUsage(ctx, app.OwnerID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if used >= int64(sub.VideoMinutesLimit) {
+			return ErrVideoMinutesLimit
+		}
+	}
 	return nil
+}
+
+// MaxCallParticipantsForWorkspace returns the plan participant cap for the
+// workspace owner. Zero means "use the process default (CALL_MAX_PARTICIPANTS)".
+func (s *Service) MaxCallParticipantsForWorkspace(ctx context.Context, workspaceID int64) (int, error) {
+	app, err := s.queries.GetAppByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	if err := s.EnsureUserSubscription(ctx, app.OwnerID); err != nil {
+		return 0, err
+	}
+	sub, err := s.queries.GetUserSubscription(ctx, app.OwnerID)
+	if err != nil {
+		return 0, err
+	}
+	return int(sub.MaxCallParticipants), nil
+}
+
+func (s *Service) RecordVideoMinutesByWorkspaceID(ctx context.Context, workspaceID int64, minutes int64) error {
+	if minutes <= 0 {
+		return nil
+	}
+	app, err := s.queries.GetAppByWorkspaceID(ctx, workspaceID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	if workspaceID == app.SandboxWorkspaceID {
+		return nil
+	}
+	_, err = s.queries.IncrementAppVideoMinutes(ctx, db.IncrementAppVideoMinutesParams{
+		AppID:        app.ID,
+		VideoMinutes: minutes,
+	})
+	return err
 }
 
 func (s *Service) AdminGetOverview(ctx context.Context) (AdminBillingOverview, error) {
@@ -420,15 +480,16 @@ func (s *Service) AdminListSubscriptions(ctx context.Context, limit, offset int3
 	items := make([]AdminSubscriptionListItem, 0, len(rows))
 	for _, row := range rows {
 		item := AdminSubscriptionListItem{
-			UserID:            row.UserID,
-			UserEmail:         row.UserEmail,
-			UserUsername:      row.UserUsername,
-			PlanSlug:          row.PlanSlug,
-			PlanName:          row.PlanName,
-			Status:            row.Status,
-			MaxApps:           row.MaxApps,
-			AppsCount:         row.AppsCount,
-			MessagesThisMonth: row.MessagesThisMonth,
+			UserID:                row.UserID,
+			UserEmail:             row.UserEmail,
+			UserUsername:          row.UserUsername,
+			PlanSlug:              row.PlanSlug,
+			PlanName:              row.PlanName,
+			Status:                row.Status,
+			MaxApps:               row.MaxApps,
+			AppsCount:             row.AppsCount,
+			MessagesThisMonth:     row.MessagesThisMonth,
+			VideoMinutesThisMonth: row.VideoMinutesThisMonth,
 		}
 		if row.CurrentPeriodEnd.Valid {
 			item.CurrentPeriodEnd = formatTime(row.CurrentPeriodEnd)
@@ -639,20 +700,22 @@ func parseMetadataInt64(metadata map[string]string, key string) (int64, error) {
 
 func toPlanResponse(p db.Plan) PlanResponse {
 	return PlanResponse{
-		Slug:              p.Slug,
-		Name:              p.Name,
-		Description:       p.Description,
-		PriceCents:        p.PriceCents,
-		PriceDisplay:      formatPriceDisplay(p.PriceCents),
-		MessagesLimit:     p.MessagesLimit,
-		ConnectionsLimit:  p.ConnectionsLimit,
-		RetentionDays:     p.RetentionDays,
-		MaxApps:           p.MaxApps,
-		WebhooksEnabled:   p.WebhooksEnabled,
-		VideoCallsEnabled: p.VideoCallsEnabled,
-		ModerationEnabled: p.ModerationEnabled,
-		IsHighlighted:     p.IsHighlighted,
-		SortOrder:         p.SortOrder,
+		Slug:                p.Slug,
+		Name:                p.Name,
+		Description:         p.Description,
+		PriceCents:          p.PriceCents,
+		PriceDisplay:        formatPriceDisplay(p.PriceCents),
+		MessagesLimit:       p.MessagesLimit,
+		ConnectionsLimit:    p.ConnectionsLimit,
+		RetentionDays:       p.RetentionDays,
+		MaxApps:             p.MaxApps,
+		VideoMinutesLimit:   p.VideoMinutesLimit,
+		MaxCallParticipants: p.MaxCallParticipants,
+		WebhooksEnabled:     p.WebhooksEnabled,
+		VideoCallsEnabled:   p.VideoCallsEnabled,
+		ModerationEnabled:   p.ModerationEnabled,
+		IsHighlighted:       p.IsHighlighted,
+		SortOrder:           p.SortOrder,
 	}
 }
 
@@ -708,7 +771,8 @@ func (s *Service) AdminCreatePlan(ctx context.Context, req CreatePlanRequest) (A
 	if name == "" {
 		return AdminPlanResponse{}, ErrInvalidRequest
 	}
-	if req.PriceCents < 0 || req.MessagesLimit < 0 || req.ConnectionsLimit < 0 || req.RetentionDays < 0 || req.MaxApps < -1 {
+	if req.PriceCents < 0 || req.MessagesLimit < 0 || req.ConnectionsLimit < 0 || req.RetentionDays < 0 ||
+		req.MaxApps < -1 || req.VideoMinutesLimit < 0 || req.MaxCallParticipants < 0 {
 		return AdminPlanResponse{}, ErrInvalidRequest
 	}
 	maxApps := req.MaxApps
@@ -723,20 +787,22 @@ func (s *Service) AdminCreatePlan(ctx context.Context, req CreatePlanRequest) (A
 	}
 
 	params := db.CreatePlanParams{
-		Slug:              slug,
-		Name:              name,
-		PriceCents:        req.PriceCents,
-		MessagesLimit:     req.MessagesLimit,
-		ConnectionsLimit:  req.ConnectionsLimit,
-		RetentionDays:     req.RetentionDays,
-		WebhooksEnabled:   req.WebhooksEnabled,
-		VideoCallsEnabled: req.VideoCallsEnabled,
-		ModerationEnabled: req.ModerationEnabled,
-		IsActive:          req.IsActive,
-		IsHighlighted:     req.IsHighlighted,
-		SortOrder:         req.SortOrder,
-		Description:       strings.TrimSpace(req.Description),
-		MaxApps:           maxApps,
+		Slug:                slug,
+		Name:                name,
+		PriceCents:          req.PriceCents,
+		MessagesLimit:       req.MessagesLimit,
+		ConnectionsLimit:    req.ConnectionsLimit,
+		RetentionDays:       req.RetentionDays,
+		WebhooksEnabled:     req.WebhooksEnabled,
+		VideoCallsEnabled:   req.VideoCallsEnabled,
+		ModerationEnabled:   req.ModerationEnabled,
+		IsActive:            req.IsActive,
+		IsHighlighted:       req.IsHighlighted,
+		SortOrder:           req.SortOrder,
+		Description:         strings.TrimSpace(req.Description),
+		MaxApps:             maxApps,
+		VideoMinutesLimit:   req.VideoMinutesLimit,
+		MaxCallParticipants: req.MaxCallParticipants,
 	}
 	if stripeID := strings.TrimSpace(req.StripePriceID); stripeID != "" {
 		params.StripePriceID = pgtype.Text{String: stripeID, Valid: true}
@@ -767,7 +833,8 @@ func (s *Service) AdminUpdatePlan(ctx context.Context, slug string, req UpdatePl
 	}
 	if req.Name == nil && req.Description == nil && req.PriceCents == nil &&
 		req.StripePriceID == nil && req.MessagesLimit == nil && req.ConnectionsLimit == nil &&
-		req.RetentionDays == nil && req.MaxApps == nil && req.WebhooksEnabled == nil &&
+		req.RetentionDays == nil && req.MaxApps == nil && req.VideoMinutesLimit == nil &&
+		req.MaxCallParticipants == nil && req.WebhooksEnabled == nil &&
 		req.VideoCallsEnabled == nil && req.ModerationEnabled == nil && req.IsActive == nil &&
 		req.IsHighlighted == nil && req.SortOrder == nil {
 		return AdminPlanResponse{}, ErrInvalidRequest
@@ -807,6 +874,18 @@ func (s *Service) AdminUpdatePlan(ctx context.Context, slug string, req UpdatePl
 			return AdminPlanResponse{}, ErrInvalidRequest
 		}
 		params.MaxApps = pgtype.Int4{Int32: *req.MaxApps, Valid: true}
+	}
+	if req.VideoMinutesLimit != nil {
+		if *req.VideoMinutesLimit < 0 {
+			return AdminPlanResponse{}, ErrInvalidRequest
+		}
+		params.VideoMinutesLimit = pgtype.Int4{Int32: *req.VideoMinutesLimit, Valid: true}
+	}
+	if req.MaxCallParticipants != nil {
+		if *req.MaxCallParticipants < 0 {
+			return AdminPlanResponse{}, ErrInvalidRequest
+		}
+		params.MaxCallParticipants = pgtype.Int4{Int32: *req.MaxCallParticipants, Valid: true}
 	}
 	if req.WebhooksEnabled != nil {
 		params.WebhooksEnabled = pgtype.Bool{Bool: *req.WebhooksEnabled, Valid: true}
@@ -891,18 +970,20 @@ func (s *Service) clearOtherHighlights(ctx context.Context, keepSlug string) err
 
 func toSubscriptionResponse(sub db.GetUserSubscriptionRow) SubscriptionResponse {
 	resp := SubscriptionResponse{
-		PlanSlug:          sub.PlanSlug,
-		PlanName:          sub.PlanName,
-		Status:            sub.Status,
-		PriceCents:        sub.PriceCents,
-		MessagesLimit:     sub.MessagesLimit,
-		ConnectionsLimit:  sub.ConnectionsLimit,
-		RetentionDays:     sub.RetentionDays,
-		MaxApps:           sub.MaxApps,
-		WebhooksEnabled:   sub.WebhooksEnabled,
-		VideoCallsEnabled: sub.VideoCallsEnabled,
-		ModerationEnabled: sub.ModerationEnabled,
-		NeedsPayment:      sub.Status == StatusPastDue,
+		PlanSlug:            sub.PlanSlug,
+		PlanName:            sub.PlanName,
+		Status:              sub.Status,
+		PriceCents:          sub.PriceCents,
+		MessagesLimit:       sub.MessagesLimit,
+		ConnectionsLimit:    sub.ConnectionsLimit,
+		RetentionDays:       sub.RetentionDays,
+		MaxApps:             sub.MaxApps,
+		VideoMinutesLimit:   sub.VideoMinutesLimit,
+		MaxCallParticipants: sub.MaxCallParticipants,
+		WebhooksEnabled:     sub.WebhooksEnabled,
+		VideoCallsEnabled:   sub.VideoCallsEnabled,
+		ModerationEnabled:   sub.ModerationEnabled,
+		NeedsPayment:        sub.Status == StatusPastDue,
 	}
 	if sub.CurrentPeriodEnd.Valid {
 		resp.CurrentPeriodEnd = formatTime(sub.CurrentPeriodEnd)

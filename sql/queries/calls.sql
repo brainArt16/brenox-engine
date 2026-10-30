@@ -66,6 +66,11 @@ FROM call_participants
 WHERE call_id = $1
   AND left_at IS NULL;
 
+-- name: CountAllCallParticipants :one
+SELECT COUNT(*)::bigint AS count
+FROM call_participants
+WHERE call_id = $1;
+
 -- name: MarkCallParticipantLeft :one
 UPDATE call_participants
 SET left_at = NOW()

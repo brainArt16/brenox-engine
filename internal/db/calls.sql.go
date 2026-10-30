@@ -53,6 +53,19 @@ func (q *Queries) CountActiveCallParticipants(ctx context.Context, callID int64)
 	return count, err
 }
 
+const countAllCallParticipants = `-- name: CountAllCallParticipants :one
+SELECT COUNT(*)::bigint AS count
+FROM call_participants
+WHERE call_id = $1
+`
+
+func (q *Queries) CountAllCallParticipants(ctx context.Context, callID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllCallParticipants, callID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createCall = `-- name: CreateCall :one
 INSERT INTO calls (
     channel_id,

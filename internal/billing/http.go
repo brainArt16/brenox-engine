@@ -11,6 +11,7 @@ import (
 func WriteHTTPError(c *gin.Context, err error) bool {
 	switch {
 	case errors.Is(err, ErrMessageLimit),
+		errors.Is(err, ErrVideoMinutesLimit),
 		errors.Is(err, ErrAppLimit),
 		errors.Is(err, ErrSubscriptionInactive),
 		errors.Is(err, ErrWebhooksNotAllowed),
@@ -18,6 +19,7 @@ func WriteHTTPError(c *gin.Context, err error) bool {
 		httperr.WriteJSON(c, http.StatusPaymentRequired, httperr.ClientMessage(
 			err,
 			ErrMessageLimit,
+			ErrVideoMinutesLimit,
 			ErrAppLimit,
 			ErrSubscriptionInactive,
 			ErrWebhooksNotAllowed,

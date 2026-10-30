@@ -42,9 +42,11 @@ INSERT INTO plans (
     is_highlighted,
     sort_order,
     description,
-    max_apps
+    max_apps,
+    video_minutes_limit,
+    max_call_participants
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 RETURNING *;
 
 -- name: UpdatePlan :one
@@ -64,6 +66,8 @@ SET
     sort_order = COALESCE(sqlc.narg('sort_order'), sort_order),
     description = COALESCE(sqlc.narg('description'), description),
     max_apps = COALESCE(sqlc.narg('max_apps'), max_apps),
+    video_minutes_limit = COALESCE(sqlc.narg('video_minutes_limit'), video_minutes_limit),
+    max_call_participants = COALESCE(sqlc.narg('max_call_participants'), max_call_participants),
     updated_at = NOW()
 WHERE slug = sqlc.arg('slug')
 RETURNING *;
@@ -108,7 +112,9 @@ SELECT
     p.webhooks_enabled,
     p.video_calls_enabled,
     p.moderation_enabled,
-    p.max_apps
+    p.max_apps,
+    p.video_minutes_limit,
+    p.max_call_participants
 FROM user_subscriptions s
 INNER JOIN plans p ON p.slug = s.plan_slug
 WHERE s.user_id = $1;
@@ -140,6 +146,15 @@ DO UPDATE SET
     updated_at = NOW()
 RETURNING messages_count;
 
+-- name: IncrementAppVideoMinutes :one
+INSERT INTO usage_counters (app_id, period_month, video_minutes)
+VALUES ($1, date_trunc('month', NOW())::date, $2)
+ON CONFLICT (app_id, period_month)
+DO UPDATE SET
+    video_minutes = usage_counters.video_minutes + EXCLUDED.video_minutes,
+    updated_at = NOW()
+RETURNING video_minutes;
+
 -- name: GetAppMessageUsage :one
 SELECT messages_count
 FROM usage_counters
@@ -153,12 +168,20 @@ INNER JOIN apps a ON a.id = u.app_id
 WHERE a.owner_id = $1
   AND u.period_month = date_trunc('month', NOW())::date;
 
+-- name: SumOwnerVideoMinutesUsage :one
+SELECT COALESCE(SUM(u.video_minutes), 0)::bigint AS video_minutes
+FROM usage_counters u
+INNER JOIN apps a ON a.id = u.app_id
+WHERE a.owner_id = $1
+  AND u.period_month = date_trunc('month', NOW())::date;
+
 -- name: ListOwnerAppMessageUsage :many
 SELECT
     a.id AS app_id,
     a.name AS app_name,
     a.slug AS app_slug,
-    COALESCE(u.messages_count, 0)::bigint AS messages_this_month
+    COALESCE(u.messages_count, 0)::bigint AS messages_this_month,
+    COALESCE(u.video_minutes, 0)::bigint AS video_minutes_this_month
 FROM apps a
 LEFT JOIN usage_counters u
     ON u.app_id = a.id
@@ -211,7 +234,14 @@ SELECT
         INNER JOIN apps a2 ON a2.id = uc.app_id
         WHERE a2.owner_id = s.user_id
           AND uc.period_month = date_trunc('month', NOW())::date
-    ), 0)::bigint AS messages_this_month
+    ), 0)::bigint AS messages_this_month,
+    COALESCE((
+        SELECT SUM(uc.video_minutes)::bigint
+        FROM usage_counters uc
+        INNER JOIN apps a3 ON a3.id = uc.app_id
+        WHERE a3.owner_id = s.user_id
+          AND uc.period_month = date_trunc('month', NOW())::date
+    ), 0)::bigint AS video_minutes_this_month
 FROM user_subscriptions s
 INNER JOIN users u ON u.id = s.user_id
 INNER JOIN plans p ON p.slug = s.plan_slug

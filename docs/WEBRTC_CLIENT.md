@@ -176,11 +176,14 @@ Debounce to ~2–5 updates per second to avoid flooding the channel.
 
 ## Limits
 
-| Config | Env var | Default |
-|--------|---------|---------|
-| Max participants | `CALL_MAX_PARTICIPANTS` | 25 |
+| Config | Source | Default / notes |
+|--------|--------|-----------------|
+| Max participants | `CALL_MAX_PARTICIPANTS` | 25 hard ceiling |
+| Plan participant cap | Account plan `max_call_participants` | When > 0, overrides the env default downward |
+| Video enabled | Account plan `video_calls_enabled` | Otherwise start/join video → **402** |
+| Video minutes | Account plan `video_minutes_limit` | Shared pool; exhausted → **402** |
 
-Join returns `409` when the call is full.
+Join returns `409` when the call is full. Video plan/quota errors return **402**. Minutes are metered on the account when a video call with ≥2 participants ends (ceil minutes).
 
 ## Error handling
 

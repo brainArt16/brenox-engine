@@ -207,21 +207,21 @@ All channel and message routes are scoped under a workspace.
 | GET | `/api/admin/apps/:id` | JWT (support+) | App detail |
 | GET | `/api/admin/apps/:app_id/keys` | JWT (support+) | List API keys for any app |
 | DELETE | `/api/admin/apps/:app_id/keys/:key_id` | JWT (admin) | Emergency cross-tenant API key revoke |
-| GET | `/api/plans` | No | Active plan tiers (limits, max apps, feature flags) |
+| GET | `/api/plans` | No | Active plan tiers (messages, apps, video minutes, call size, features) |
 | GET/PATCH/DELETE | `/api/admin/plans` | JWT (support+/admin write) | Manage plans, Stripe price IDs, feature toggles |
 | GET | `/api/platform/status` | No | Maintenance mode status |
 | POST | `/webhooks/stripe` | Stripe signature | Subscription lifecycle webhooks |
-| GET | `/api/billing` | JWT | Account subscription, shared usage, apps used/limit |
+| GET | `/api/billing` | JWT | Account subscription, shared message + video usage, apps used/limit |
 | POST | `/api/billing/checkout` | JWT | Create Stripe Checkout session (paid upgrades) |
 | GET | `/api/admin/billing/overview` | JWT (support+) | Active subscription count |
-| GET | `/api/admin/billing/subscriptions` | JWT (support+) | All user subscriptions + usage |
+| GET | `/api/admin/billing/subscriptions` | JWT (support+) | All user subscriptions + message/video usage |
 | GET | `/api/admin/users/:id/billing` | JWT (support+) | User account billing detail |
 | PATCH | `/api/admin/users/:id/subscription` | JWT (admin) | Override user plan/status |
 | GET/PATCH | `/api/admin/platform-settings` | JWT (support+/admin write) | Maintenance mode |
 | GET | `/api/admin/audit-logs` | JWT (support+) | Audit log entries (`?user_id=`, `?action=`, pagination) |
-| POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`) |
-| POST | `/api/calls/:id/join` | JWT | Join call (channel members only) |
-| POST | `/api/calls/:id/leave` | JWT | Leave call |
+| POST | `/api/workspaces/:workspace_id/channels/:id/calls` | JWT | Initiate call (`mode`: `voice` or `video`; video gated by plan) |
+| POST | `/api/calls/:id/join` | JWT | Join call (channel members only; plan participant cap) |
+| POST | `/api/calls/:id/leave` | JWT | Leave call (meters video minutes when call ends) |
 | POST | `/api/apps` | JWT | Create developer app (live + sandbox workspaces) |
 | GET | `/api/apps` | JWT | List your developer apps |
 | GET | `/api/apps/:app_id` | JWT | Get app by ID (owner only) |

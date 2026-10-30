@@ -2,7 +2,7 @@
 
 > **Purpose:** Track all backend work from current state through production-ready realtime communication platform.
 >
-> **Last updated:** 2026-10-30 (Account-level billing)
+> **Last updated:** 2026-10-30 (Plan video minutes + call participants)
 >
 > **How to use:** Check off tasks as completed. Update status tags and the progress summary at the top after each sprint.
 
@@ -518,6 +518,14 @@ messages
 | 15.24 | `GET/POST /api/billing`; shared message pool; `max_apps` gate on create app | [x] |
 | 15.25 | Admin user billing; web `/settings/billing` + pricing apps copy | [x] |
 
+### Phase 15C.3 — Video call plan limits
+
+| # | Task | Status |
+|---|------|--------|
+| 15.26 | Migration: `plans.video_minutes_limit`, `max_call_participants`; `usage_counters.video_minutes` | [x] |
+| 15.27 | Gate video start/join on plan + minutes; meter ceil minutes on end (≥2 participants); plan participant cap | [x] |
+| 15.28 | Billing/plans responses + admin UI; web billing + pricing show video quotas | [x] |
+
 ---
 
 ## Dependency Graph
@@ -607,6 +615,7 @@ Record architectural decisions here as they are made.
 | 2026-06-06 | Channel names unique per workspace | DB index on `(workspace_id, name)` |
 | 2026-06-06 | Workspace roles: owner/admin/moderator/member | Enforced via `internal/authz`; read-only channels for announcements |
 | 2026-10-30 | Billing is per user account, not per app | Shared monthly message pool + included app count; Stripe Checkout upgrades the account plan |
+| 2026-10-30 | Video minutes + participants are plan fields | Shared monthly video pool; effective call size is `min(CALL_MAX_PARTICIPANTS, plan.max_call_participants)` when plan > 0; sandbox skips metering |
 | 2026-07-07 | Sandbox test keys stay on the production API host | Abuse prevention uses sandbox caps, stricter rate limits, key expiry, and TTL cleanup instead of blocking `bx_test_*` on `api.breno-x.com` |
 
 ---
@@ -615,6 +624,8 @@ Record architectural decisions here as they are made.
 
 | Date | Change |
 |------|--------|
+| 2026-10-30 | Starter (free) includes video: 100 min/mo, 5 participants |
+| 2026-10-30 | Plan video limits: `video_minutes_limit` + `max_call_participants`; meter on call end; billing UI/pricing/admin plans |
 | 2026-10-30 | Account-level billing (shared pool + free Starter): `user_subscriptions`, `max_apps`, `/api/billing`, admin user subscription APIs |
 | 2026-07-31 | Maintenance mode bypasses `/auth/login`, `/auth/refresh`, and `/api/users/me` so admins can always sign in to disable it (prevents lockout) |
 | 2026-07-31 | Broadcast `message.new` from chat service for REST-created messages (files sent via REST now appear realtime); WS path reuses same broadcast |

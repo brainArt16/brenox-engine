@@ -1002,7 +1002,8 @@
           "request": {
             "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
             "method": "GET",
-            "url": "{{baseUrl}}/api/billing"
+            "url": "{{baseUrl}}/api/billing",
+            "description": "Account subscription + shared usage (messages_this_month, video_minutes_this_month) and per-app breakdown."
           }
         },
         {
@@ -1073,7 +1074,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"slug\": \"pro\",\n  \"name\": \"Pro\",\n  \"price_cents\": 1500,\n  \"messages_limit\": 100000,\n  \"connections_limit\": 1000,\n  \"retention_days\": 60,\n  \"max_apps\": 5,\n  \"webhooks_enabled\": true,\n  \"is_active\": true\n}"
+              "raw": "{\n  \"slug\": \"pro\",\n  \"name\": \"Pro\",\n  \"price_cents\": 1500,\n  \"messages_limit\": 100000,\n  \"connections_limit\": 1000,\n  \"retention_days\": 60,\n  \"max_apps\": 5,\n  \"video_minutes_limit\": 2000,\n  \"max_call_participants\": 15,\n  \"webhooks_enabled\": true,\n  \"video_calls_enabled\": true,\n  \"is_active\": true\n}"
             },
             "url": "{{baseUrl}}/api/admin/plans"
           }
@@ -1086,7 +1087,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"price_cents\": 2500,\n  \"stripe_price_id\": \"price_xxx\",\n  \"max_apps\": 5,\n  \"webhooks_enabled\": true\n}"
+              "raw": "{\n  \"price_cents\": 2500,\n  \"stripe_price_id\": \"price_xxx\",\n  \"max_apps\": 5,\n  \"video_minutes_limit\": 1000,\n  \"max_call_participants\": 15,\n  \"webhooks_enabled\": true,\n  \"video_calls_enabled\": true\n}"
             },
             "url": "{{baseUrl}}/api/admin/plans/growth"
           }

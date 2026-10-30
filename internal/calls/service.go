@@ -22,6 +22,8 @@ type Service struct {
 
 type CallBilling interface {
 	CheckCanStartVideoCall(ctx context.Context, workspaceID int64) error
+	MaxCallParticipantsForWorkspace(ctx context.Context, workspaceID int64) (int, error)
+	RecordVideoMinutesByWorkspaceID(ctx context.Context, workspaceID int64, minutes int64) error
 }
 
 func NewService(
@@ -62,6 +64,10 @@ func (s *Service) InitiateCall(
 		if err := s.billing.CheckCanStartVideoCall(ctx, workspaceID); err != nil {
 			return CallResponse{}, err
 		}
+	}
+
+	if err := s.assertParticipantCapacity(ctx, workspaceID, 0); err != nil {
+		return CallResponse{}, err
 	}
 
 	if existing, err := s.queries.GetActiveCallByChannel(ctx, channelID); err == nil {
@@ -124,8 +130,13 @@ func (s *Service) JoinCall(ctx context.Context, callID, userID int64) (CallRespo
 		if err != nil {
 			return CallResponse{}, err
 		}
-		if s.maxParticipants > 0 && count >= int64(s.maxParticipants) {
-			return CallResponse{}, ErrCallFull
+		if err := s.assertParticipantCapacity(ctx, call.WorkspaceID, count); err != nil {
+			return CallResponse{}, err
+		}
+		if call.Mode == ModeVideo && s.billing != nil {
+			if err := s.billing.CheckCanStartVideoCall(ctx, call.WorkspaceID); err != nil {
+				return CallResponse{}, err
+			}
 		}
 
 		if _, err := s.queries.AddCallParticipant(ctx, db.AddCallParticipantParams{
@@ -220,6 +231,7 @@ func (s *Service) LeaveCall(ctx context.Context, callID, userID int64) (CallResp
 		if err != nil {
 			return CallResponse{}, err
 		}
+		s.meterVideoCall(ctx, call)
 		s.publish(ctx, "call.end", call, userID)
 	}
 
@@ -250,8 +262,58 @@ func (s *Service) clearStaleSoloCall(ctx context.Context, call db.Call, userID i
 		return false, err
 	}
 
+	s.meterVideoCall(ctx, ended)
 	s.publish(ctx, "call.end", ended, userID)
 	return true, nil
+}
+
+func (s *Service) participantLimit(ctx context.Context, workspaceID int64) int {
+	limit := s.maxParticipants
+	if s.billing != nil {
+		if planLimit, err := s.billing.MaxCallParticipantsForWorkspace(ctx, workspaceID); err == nil && planLimit > 0 {
+			if limit <= 0 || planLimit < limit {
+				limit = planLimit
+			}
+		}
+	}
+	return limit
+}
+
+func (s *Service) assertParticipantCapacity(ctx context.Context, workspaceID int64, currentCount int64) error {
+	limit := s.participantLimit(ctx, workspaceID)
+	if limit > 0 && currentCount >= int64(limit) {
+		return ErrCallFull
+	}
+	return nil
+}
+
+// meterVideoCall charges wall-clock minutes for ended video calls that had at
+// least two participants. Solo/abandoned ringing calls are not billed.
+func (s *Service) meterVideoCall(ctx context.Context, call db.Call) {
+	if s.billing == nil || call.Mode != ModeVideo {
+		return
+	}
+	total, err := s.queries.CountAllCallParticipants(ctx, call.ID)
+	if err != nil || total < 2 {
+		return
+	}
+	if !call.CreatedAt.Valid {
+		return
+	}
+	end := time.Now().UTC()
+	if call.EndedAt.Valid {
+		end = call.EndedAt.Time.UTC()
+	}
+	start := call.CreatedAt.Time.UTC()
+	if !end.After(start) {
+		return
+	}
+	secs := end.Sub(start).Seconds()
+	minutes := int64((secs + 59) / 60) // ceil to whole minutes
+	if minutes < 1 {
+		minutes = 1
+	}
+	_ = s.billing.RecordVideoMinutesByWorkspaceID(ctx, call.WorkspaceID, minutes)
 }
 
 func (s *Service) ValidateSignal(ctx context.Context, callID, userID int64) (SignalContext, error) {
